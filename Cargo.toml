@@ -1,0 +1,34 @@
+[workspace]
+resolver = "2"
+members = ["crates/*"]
+
+[workspace.package]
+edition = "2021"
+version = "0.0.1"
+publish = false
+license = "UNLICENSED"
+
+[workspace.dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+rusqlite = { version = "0.40", features = ["bundled"] }
+getrandom = "0.4"
+thiserror = "2"
+proptest = "1"
+sync-core = { path = "crates/sync-core" }
+
+[profile.dev]
+opt-level = 1
+
+# Size-optimised builds for phones.
+[profile.ios-release]
+inherits = "release"
+opt-level = "s"
+lto = "fat"
+codegen-units = 1
+debug = false
+strip = "debuginfo"
+panic = "unwind"
+
+[profile.android-release]
+inherits = "ios-release"

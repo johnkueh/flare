@@ -1,0 +1,7 @@
+/target
+# SwiftPM, Gradle
+/.build/
+/.swiftpm/
+/.gradle/
+/build/
+/local.properties

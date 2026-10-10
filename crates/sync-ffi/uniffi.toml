@@ -1,0 +1,9 @@
+# Bindings config (read by uniffi-bindgen in library mode).
+[bindings.swift]
+module_name = "SyncKit"
+ffi_module_name = "SyncFFI"
+ffi_module_filename = "SyncFFI"
+
+[bindings.kotlin]
+package_name = "com.johnkueh.sync.ffi"
+cdylib_name = "sync_ffi"
