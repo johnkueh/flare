@@ -44,10 +44,10 @@ repo on every platform and bump it together.
 
   ```kotlin
   // settings.gradle.kts, dependencyResolutionManagement.repositories
-  maven("https://jitpack.io") { content { includeGroup("com.github.johnkueh.flare") } }
+  maven("https://jitpack.io") { content { includeGroup("com.github.johnkueh") } }
   maven("https://pub-796846793f3e431ab3a92e0577c57dde.r2.dev/maven") { content { includeGroup("com.johnkueh.sync") } }
   // app/build.gradle.kts
-  implementation("com.github.johnkueh.flare:sync:<tag>")
+  implementation("com.github.johnkueh:flare:<tag>")
   testRuntimeOnly("com.johnkueh.sync:sync-ffi-host:<ffiVersion in kotlin/build.gradle.kts>") // JVM tests on a Mac
   ```
 
@@ -60,7 +60,7 @@ repo on every platform and bump it together.
 
 Point the app at a checkout instead of a tag while you work, then tag and
 bump: Xcode, drag the checkout into the project (a local package overrides
-the remote one); Gradle, `includeBuild("../flare") { dependencySubstitution { substitute(module("com.github.johnkueh.flare:sync")).using(project(":sync")) } }`;
+the remote one); Gradle, `includeBuild("../flare") { dependencySubstitution { substitute(module("com.github.johnkueh:flare")).using(project(":sync")) } }`;
 pnpm, `"@sync/server": "link:../flare/server"`.
 
 ## The model
