@@ -91,6 +91,11 @@ val buildHostRustLib by tasks.registering(Exec::class) {
     commandLine("cargo", "build", "-p", "sync-ffi", "--lib", "--profile", "android-release")
 }
 
+// Publish the POM only. Gradle's own metadata drops the "@aar" on JNA and on
+// the native AAR, so an app would get JNA's desktop jar as well (duplicate
+// classes with any other JNA AAR it has).
+tasks.withType<GenerateModuleMetadata>().configureEach { enabled = false }
+
 // What JitPack builds (jitpack.yml). It publishes under its own coordinates,
 // com.github.johnkueh:flare:<tag>, whatever these say.
 afterEvaluate {
