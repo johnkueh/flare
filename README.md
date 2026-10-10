@@ -27,7 +27,7 @@ Sync is the first piece. Auth and events come next.
 **Worker**
 
 ```sh
-pnpm add "@sync/server@github:johnkueh/flare#0.1.0&path:/server"
+pnpm add "@sync/server@github:johnkueh/flare#0.1.1&path:/server"
 ```
 
 ```ts
@@ -45,7 +45,7 @@ maven("https://jitpack.io")
 maven("https://pub-796846793f3e431ab3a92e0577c57dde.r2.dev/maven")
 
 // app/build.gradle.kts
-implementation("com.github.johnkueh:flare:0.1.0")
+implementation("com.github.johnkueh:flare:0.1.1")
 ```
 
 Then describe your data in one JSON file and open the store:
