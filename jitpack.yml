@@ -1,5 +1,5 @@
 # JitPack builds the Kotlin library from a tag or commit:
-#   implementation("com.github.johnkueh.flare:sync:<tag or commit>")
+#   implementation("com.github.johnkueh:flare:<tag or commit>")
 jdk:
   - openjdk17
 install:

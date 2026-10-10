@@ -10,7 +10,7 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 //                             live socket; the app supplies tokens and storage
 //
 // An app adds JitPack and the binaries' Maven repository (settings.gradle.kts
-// here) and depends on com.github.johnkueh.flare:sync:<tag> (README.md).
+// here) and depends on com.github.johnkueh:flare:<tag> (README.md).
 //
 // The .so files come prebuilt, so an app builds without cargo.
 // scripts/publish-binaries.sh builds, uploads and rewrites ffiVersion after a
@@ -92,7 +92,7 @@ val buildHostRustLib by tasks.registering(Exec::class) {
 }
 
 // What JitPack builds (jitpack.yml). It publishes under its own coordinates,
-// com.github.johnkueh.flare:sync:<tag>, whatever these say.
+// com.github.johnkueh:flare:<tag>, whatever these say.
 afterEvaluate {
     publishing {
         publications {
