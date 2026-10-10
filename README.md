@@ -6,7 +6,7 @@
 Worker: phones work offline, share data with each other, and catch up the
 moment they're back online.
 
-Sync is the first piece. Auth and events come next.
+Sync is the first piece. Auth comes next.
 
 ## What you get
 
