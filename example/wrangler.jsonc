@@ -1,0 +1,25 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "flare-example",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-08-15",
+  // Better Auth needs node:async_hooks.
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": { "directory": "public", "binding": "ASSETS", "run_worker_first": ["/v1/*", "/dev/*"] },
+  "vars": {
+    "BETTER_AUTH_URL": "http://localhost:8787",
+    // Development only: anonymous sign-in without App Attest (the iOS
+    // simulator has none), development keys, and email codes kept in
+    // /dev/outbox instead of sent. Turn all three off to deploy.
+    "FLARE_AUTH_ALLOW_UNATTESTED": "true",
+    "APP_ATTEST_ALLOW_DEVELOPMENT": "true",
+    "DEV_OUTBOX": "true",
+    "APP_ATTEST_APP_IDS": "",
+    "ANDROID_APP_IDS": ""
+  },
+  // BETTER_AUTH_SECRET is a secret: .dev.vars locally, `wrangler secret put` deployed.
+  "durable_objects": { "bindings": [{ "name": "SPACES", "class_name": "SpaceObject" }] },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["SpaceObject"] }],
+  "r2_buckets": [{ "binding": "SPACE_FILES", "bucket_name": "flare-example-files" }],
+  "d1_databases": [{ "binding": "DB", "database_name": "flare-example", "database_id": "00000000-0000-0000-0000-000000000000" }]
+}

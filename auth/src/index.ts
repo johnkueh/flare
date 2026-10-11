@@ -13,7 +13,7 @@
 //   const space = spaceHttp(request, env, { prefix: "/v1", authenticate: (r) => authenticate(auth, r) });
 
 import { type BetterAuthOptions, betterAuth } from "better-auth";
-import { anonymous, bearer } from "better-auth/plugins";
+import { anonymous, bearer, emailOTP } from "better-auth/plugins";
 import type { AttestEnv } from "./attest/env";
 import { type FlareAttestOptions, flareAttest } from "./plugin";
 
@@ -38,6 +38,14 @@ export interface FlareAuthOptions {
   /** Where the auth routes are mounted. Default "/v1/auth". */
   basePath?: string;
   onLinkAccount?: LinkAccount;
+  /** Sign in with Apple. Phones send the ID token Apple hands them, so
+   *  `appBundleIdentifier` is what's checked; `clientId` (a Services ID)
+   *  and `clientSecret` are for the web flow. */
+  apple?: { appBundleIdentifier: string; clientId?: string; clientSecret?: string };
+  /** Sign in with a 6-digit code by email: sends `code` to `email`. Run the
+   *  send with waitUntil rather than awaiting it, so the response time
+   *  doesn't say whether the address has an account. */
+  sendEmailCode?: (email: string, code: string) => Promise<void>;
   /** Anything else for Better Auth: socialProviders, more plugins,
    *  trustedOrigins, session lifetimes. Plugins are added after Flare's. */
   betterAuth?: Omit<BetterAuthOptions, "database" | "secret" | "baseURL" | "basePath">;
@@ -45,8 +53,19 @@ export interface FlareAuthOptions {
 
 export function flareAuthOptions(env: FlareAuthEnv, options: FlareAuthOptions = {}) {
   const attest: FlareAttestOptions = { allowUnattested: env.FLARE_AUTH_ALLOW_UNATTESTED === "true" };
+  const { apple, sendEmailCode } = options;
   return {
     ...options.betterAuth,
+    socialProviders: {
+      ...(apple && {
+        apple: {
+          clientId: apple.clientId ?? apple.appBundleIdentifier,
+          clientSecret: apple.clientSecret ?? "",
+          appBundleIdentifier: apple.appBundleIdentifier,
+        },
+      }),
+      ...options.betterAuth?.socialProviders,
+    },
     database: env.DB,
     secret: env.BETTER_AUTH_SECRET,
     baseURL: env.BETTER_AUTH_URL,
@@ -59,6 +78,7 @@ export function flareAuthOptions(env: FlareAuthEnv, options: FlareAuthOptions = 
         },
       }),
       bearer(),
+      ...(sendEmailCode ? [emailOTP({ sendVerificationOTP: ({ email, otp }) => sendEmailCode(email, otp) })] : []),
       ...(options.betterAuth?.plugins ?? []),
     ],
   } satisfies BetterAuthOptions;

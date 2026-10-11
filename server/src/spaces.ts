@@ -1,15 +1,16 @@
-// The /spaces calls (PROTOCOL.md, "HTTP"), with the device already known.
-// A Worker authenticates the request its own way (App Attest or
-// Android key attestation, say), then calls these with the device id it got.
+// The /spaces calls (PROTOCOL.md, "HTTP"), with the caller already known.
+// A Worker authenticates the request its own way (@flare/auth's
+// `authenticate`, say), then calls these with the member id it got: the
+// user, or before accounts the device.
 // Each returns the space's own Result, so the Worker maps refusals onto
 // whatever error shape its API uses.
 
 import { lookupCode, parseInviteCode, releaseCode, reserveCode } from "./codes";
 import { schemaMismatches, type SyncSchema } from "./schema-check";
-import type { NewDevice, Result, SpaceEnv, SpaceObject, SpaceRpc } from "./space";
+import type { NewDevice, Result, SeenDevice, SpaceEnv, SpaceObject, SpaceRpc } from "./space";
 
-/** What a Worker serving spaces needs: the space objects and the code
- *  index (`space_codes`, see migrations/space_codes.sql). */
+/** What a Worker serving spaces needs: the space objects, the code index
+ *  (`space_codes`) and the member index (`space_members`); see migrations/. */
 export interface SpacesEnv extends SpaceEnv {
   SPACES: DurableObjectNamespace<SpaceObject>;
 }
@@ -32,6 +33,7 @@ export async function createSpace(env: SpacesEnv, device: NewDevice, name: strin
   const code = await reserveCode(env.DB, spaceId);
   const result = await (env.SPACES.get(id) as unknown as SpaceRpc).create(spaceId, name, code, device);
   logSpace("space_create", device.id, spaceId, result);
+  if (result.ok) await addMember(env, device.id, spaceId);
   return result;
 }
 
@@ -51,12 +53,14 @@ export async function joinSpace(env: SpacesEnv, spaceId: string, text: string, d
   // The space holds its current code, so it checks the code itself.
   const result = await space.join(code, device);
   logSpace("space_join", device.id, spaceId, result);
+  if (result.ok) await addMember(env, device.id, spaceId);
   return result;
 }
 
-export async function spaceInfo(env: SpacesEnv, spaceId: string, deviceId: string) {
+/** With `device`, lists the phone or browser under the member. */
+export async function spaceInfo(env: SpacesEnv, spaceId: string, deviceId: string, device?: SeenDevice) {
   const space = spaceStub(env, spaceId);
-  return space ? space.info(deviceId) : notFound;
+  return space ? space.info(deviceId, device) : notFound;
 }
 
 export async function leaveSpace(env: SpacesEnv, spaceId: string, deviceId: string) {
@@ -64,6 +68,7 @@ export async function leaveSpace(env: SpacesEnv, spaceId: string, deviceId: stri
   if (!space) return notFound;
   const result = await space.leave(deviceId);
   logSpace("space_leave", deviceId, spaceId, result);
+  if (result.ok) await removeMember(env, deviceId, spaceId);
   return result;
 }
 
@@ -72,6 +77,7 @@ export async function removeDevice(env: SpacesEnv, spaceId: string, deviceId: st
   if (!space) return notFound;
   const result = await space.removeDevice(deviceId, target);
   logSpace("space_remove_device", deviceId, spaceId, result);
+  if (result.ok) await removeMember(env, target, spaceId);
   return result;
 }
 
@@ -112,6 +118,44 @@ export async function pushOps(env: SpacesEnv, spaceId: string, deviceId: string,
 export async function changes(env: SpacesEnv, spaceId: string, deviceId: string, since: number, limit: number) {
   const space = spaceStub(env, spaceId);
   return space ? space.changes(deviceId, since, limit) : notFound;
+}
+
+/** Moves every space `from` is in over to `to`: call it from @flare/auth's
+ *  onLinkAccount (an anonymous user signed in to a real account). */
+export async function relinkMember(env: SpacesEnv, from: string, to: string) {
+  const { results } = await env.DB.prepare("SELECT space_id FROM space_members WHERE member_id = ?")
+    .bind(from)
+    .all<{ space_id: string }>();
+  return relinkSpaces(env, results.map((r) => r.space_id), from, to);
+}
+
+/** Moves the given spaces' membership from `from` to `to`. For a device
+ *  from before accounts: the app sends the spaces it's in, and the Worker
+ *  calls this with the device id the session was attested with. Spaces
+ *  `from` isn't an active member of are skipped. */
+export async function relinkSpaces(env: SpacesEnv, spaceIds: string[], from: string, to: string) {
+  const moved: string[] = [];
+  for (const spaceId of spaceIds) {
+    const space = spaceStub(env, spaceId);
+    const result = space ? await space.relinkMember(from, to) : notFound;
+    logSpace("space_relink", from, spaceId, result);
+    if (result.ok && result.moved) {
+      moved.push(spaceId);
+      await addMember(env, to, spaceId);
+    }
+    await removeMember(env, from, spaceId);
+  }
+  return { moved };
+}
+
+async function addMember(env: SpacesEnv, memberId: string, spaceId: string) {
+  await env.DB.prepare("INSERT OR IGNORE INTO space_members (member_id, space_id) VALUES (?, ?)")
+    .bind(memberId, spaceId)
+    .run();
+}
+
+async function removeMember(env: SpacesEnv, memberId: string, spaceId: string) {
+  await env.DB.prepare("DELETE FROM space_members WHERE member_id = ? AND space_id = ?").bind(memberId, spaceId).run();
 }
 
 function logSpace(event: string, deviceId: string, spaceId: string, result: Result<object>) {

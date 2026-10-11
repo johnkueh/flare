@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Groceries on Flare</title>
+<style>
+  :root {
+    --bg: #f5f6f4; --surface: #fff; --ink: #1b1f1c; --muted: #646b66; --line: #dde1dc;
+    --accent: #c2410c; --accent-ink: #fff; --done: #8a918c;
+    font: 16px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #111412; --surface: #1a1e1b; --ink: #e9ece9; --muted: #9aa29c; --line: #2b302c; --accent: #fb7a3c; --accent-ink: #111; --done: #6d746f; color-scheme: dark; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); }
+  main { max-width: 520px; margin: 0 auto; padding: 32px 16px 64px; display: grid; gap: 24px; }
+  h1 { font-size: 26px; margin: 0; }
+  h2 { font-size: 15px; margin: 0; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .05em; }
+  p { margin: 0; }
+  .muted { color: var(--muted); font-size: 14px; }
+  section { display: grid; gap: 12px; }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px; display: grid; gap: 12px; }
+  form { display: flex; gap: 8px; flex-wrap: wrap; }
+  input[type=text], input[type=email] { flex: 1 1 180px; min-width: 0; font: inherit; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--ink); }
+  button { font: inherit; font-weight: 600; padding: 10px 14px; border: 0; border-radius: 8px; background: var(--accent); color: var(--accent-ink); cursor: pointer; }
+  button.quiet { background: transparent; color: var(--accent); padding: 4px 0; }
+  ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+  li.item label { display: flex; gap: 10px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line); cursor: pointer; }
+  li.item input { width: 18px; height: 18px; accent-color: var(--accent); }
+  li.item.done span { color: var(--done); text-decoration: line-through; }
+  .code { font: 600 20px/1 ui-monospace, Menlo, monospace; letter-spacing: .08em; }
+  .row { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .spaces button { width: 100%; text-align: left; background: var(--surface); color: var(--ink); border: 1px solid var(--line); }
+  .error { color: #b42318; font-size: 14px; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <header class="row">
+    <h1>Groceries</h1>
+    <button class="quiet" id="sign-out" hidden>Sign out</button>
+  </header>
+
+  <!-- Signed out: email code. -->
+  <section id="signed-out" hidden>
+    <div class="card">
+      <p>Sign in with a code we email you.</p>
+      <form id="email-form"><input type="email" id="email" placeholder="you@example.com" required autocomplete="email"><button>Send code</button></form>
+      <form id="code-form" hidden><input type="text" id="code" placeholder="6-digit code" inputmode="numeric" autocomplete="one-time-code" required><button>Sign in</button></form>
+      <p class="error" id="auth-error" hidden></p>
+    </div>
+  </section>
+
+  <!-- Signed in, no list open. -->
+  <section id="home" hidden>
+    <h2>Your lists</h2>
+    <ul class="spaces" id="spaces"></ul>
+    <p class="muted" id="no-spaces" hidden>No lists yet.</p>
+    <div class="card">
+      <form id="create-form"><input type="text" id="space-name" placeholder="New list name" required><button>Create</button></form>
+      <form id="join-form"><input type="text" id="join-code" placeholder="Invite code" required><button>Join</button></form>
+      <p class="error" id="home-error" hidden></p>
+    </div>
+  </section>
+
+  <!-- One list. -->
+  <section id="space" hidden>
+    <div class="row"><h2 id="space-name-label"></h2><button class="quiet" id="back">All lists</button></div>
+    <div class="card">
+      <form id="add-form"><input type="text" id="item-name" placeholder="Add an item" required><button>Add</button></form>
+      <ul id="items"></ul>
+    </div>
+    <div class="card">
+      <div class="row"><span class="muted">Invite code</span><span class="code" id="invite-code"></span></div>
+      <ul id="members" class="muted"></ul>
+    </div>
+  </section>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+let current = null; // { info, socket }
+
+async function api(method, path, body) {
+  const res = await fetch(path, {
+    method,
+    headers: body ? { "Content-Type": "application/json" } : {},
+    body: body ? JSON.stringify(body) : undefined,
+    credentials: "same-origin",
+  });
+  const data = await res.json().catch(() => null);
+  if (!res.ok) throw Object.assign(new Error(data?.message || data?.code || res.statusText), { status: res.status, data });
+  return data;
+}
+
+function show(id) {
+  for (const s of ["signed-out", "home", "space"]) $(s).hidden = s !== id;
+  $("sign-out").hidden = id === "signed-out";
+}
+
+function error(id, message) {
+  $(id).textContent = message || "";
+  $(id).hidden = !message;
+}
+
+// -- signing in ---------------------------------------------------------------
+
+$("email-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  try {
+    await api("POST", "/v1/auth/email-otp/send-verification-otp", { email: $("email").value, type: "sign-in" });
+    $("code-form").hidden = false;
+    $("code").focus();
+    error("auth-error");
+  } catch (err) { error("auth-error", err.message); }
+});
+
+$("code-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  try {
+    await api("POST", "/v1/auth/sign-in/email-otp", { email: $("email").value, otp: $("code").value.trim() });
+    await home();
+  } catch (err) { error("auth-error", "That code didn't work. Check it, or send a new one."); }
+});
+
+$("sign-out").addEventListener("click", async () => {
+  closeSocket();
+  await api("POST", "/v1/auth/sign-out", {});
+  $("code-form").hidden = true;
+  show("signed-out");
+});
+
+// -- lists --------------------------------------------------------------------
+
+async function home() {
+  closeSocket();
+  let me;
+  try { me = await api("GET", "/v1/me/spaces"); } catch (err) {
+    if (err.status === 401) return show("signed-out");
+    throw err;
+  }
+  const list = $("spaces");
+  list.replaceChildren(...me.spaces.map((info) => {
+    const li = document.createElement("li");
+    const b = document.createElement("button");
+    b.textContent = info.name;
+    b.addEventListener("click", () => open(info.spaceId));
+    li.append(b);
+    return li;
+  }));
+  $("no-spaces").hidden = me.spaces.length > 0;
+  show("home");
+}
+
+$("create-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  try {
+    const info = await api("POST", "/v1/spaces", { name: $("space-name").value });
+    $("space-name").value = "";
+    await open(info.spaceId);
+  } catch (err) { error("home-error", err.message); }
+});
+
+$("join-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  try {
+    const preview = await api("GET", `/v1/invites/${encodeURIComponent($("join-code").value)}`);
+    await api("POST", `/v1/spaces/${preview.spaceId}/join`, { code: $("join-code").value });
+    $("join-code").value = "";
+    await open(preview.spaceId);
+  } catch (err) { error("home-error", err.status === 404 ? "No list has that code." : err.message); }
+});
+
+$("back").addEventListener("click", () => home());
+
+// -- one list -----------------------------------------------------------------
+
+async function open(spaceId) {
+  closeSocket();
+  const info = await api("GET", `/v1/spaces/${spaceId}`);
+  current = { info, socket: null };
+  $("space-name-label").textContent = info.name;
+  $("invite-code").textContent = `${info.code.slice(0, 4)}-${info.code.slice(4)}`;
+  $("members").replaceChildren(...info.devices.map((m) => {
+    const li = document.createElement("li");
+    const devices = m.devices.map((d) => d.name || d.platform).join(", ");
+    li.textContent = `${m.id === info.you ? "You" : "Member"}${m.id === info.owner ? " (owner)" : ""}${devices ? `: ${devices}` : ""}`;
+    return li;
+  }));
+  show("space");
+  await refresh();
+  // The space says {"version": N} after every change; re-read when it does.
+  const socket = new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/v1/spaces/${spaceId}/live`);
+  socket.addEventListener("message", () => refresh());
+  current.socket = socket;
+}
+
+async function refresh() {
+  if (!current) return;
+  const { docs } = await api("GET", `/v1/spaces/${current.info.spaceId}/docs/groceries?orderBy=position`);
+  $("items").replaceChildren(...docs.map((doc) => {
+    const li = document.createElement("li");
+    li.className = `item${doc.done ? " done" : ""}`;
+    li.dataset.id = doc.id;
+    const label = document.createElement("label");
+    const box = document.createElement("input");
+    box.type = "checkbox";
+    box.checked = doc.done === true;
+    box.addEventListener("change", () => write([{ d: doc.id, f: "done", v: box.checked, after: doc._t }]));
+    const name = document.createElement("span");
+    name.textContent = doc.name;
+    label.append(box, name);
+    li.append(label);
+    return li;
+  }));
+}
+
+$("add-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const id = crypto.randomUUID().replace(/-/g, "");
+  await write([
+    { d: id, f: "name", v: $("item-name").value },
+    { d: id, f: "done", v: false },
+    { d: id, f: "position", v: String(Date.now()).padStart(15, "0") },
+  ]);
+  $("item-name").value = "";
+});
+
+async function write(writes) {
+  await api("POST", `/v1/spaces/${current.info.spaceId}/docs/groceries`, { writes });
+  await refresh();
+}
+
+function closeSocket() {
+  current?.socket?.close();
+  current = null;
+}
+
+home();
+</script>
+</body>
+</html>

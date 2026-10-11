@@ -7,8 +7,12 @@ import { deleteFiles, fileKey } from "./files";
 // nothing about any app's data: it stores entries by path and compares
 // timestamps as strings, nothing else.
 //
-// The Worker in front authenticates the device (its signing key's id is the
-// device id), reserves invite codes in D1, and calls the RPC methods below.
+// The Worker in front authenticates the caller, reserves invite codes in D1,
+// and calls the RPC methods below. A member is whoever the Worker says the
+// caller is: with @flare/auth that's the signed-in user, so every phone a
+// person signs in on is already a member, and the phones themselves are
+// listed under them. (Before accounts, a member was one attested device;
+// relinkMember() moves such a member to a user.)
 // Methods return `{ ok: false, error }` rather than throwing, so error codes
 // survive the RPC hop.
 
@@ -21,7 +25,19 @@ export type Json = null | boolean | number | string | Json[] | { [key: string]: 
 /** One write to one entry path. */
 export type Op = { c: string; d: string; f: string; s: string; v: Json; t: string; k?: "parent" };
 
-export type Device = { id: string; name: string; platform: Platform; joinedAt: number; lastSeen: number };
+/** A phone or browser a member has used here, newest first. */
+export type MemberDevice = { id: string; name: string; platform: Platform; lastSeen: number };
+
+/** A member. `id` is the user (or, before accounts, the device); `name`
+ *  and `platform` are from the device they joined on. */
+export type Device = {
+  id: string;
+  name: string;
+  platform: Platform;
+  joinedAt: number;
+  lastSeen: number;
+  devices: MemberDevice[];
+};
 
 export type SpaceInfo = {
   spaceId: string;
@@ -50,7 +66,13 @@ export type Result<T> =
   | ({ ok: true } & T)
   | { ok: false; error: SpaceError; /** INVALID_OPS: which op and why. */ index?: number; reason?: string };
 
-export type NewDevice = { id: string; name: string; platform: Platform };
+/** Who is creating or joining: the member's id, and the device's name and
+ *  platform. `deviceId` names the device itself when it differs from the
+ *  member (a user's phone), so it's listed under them. */
+export type NewDevice = { id: string; name: string; platform: Platform; deviceId?: string };
+
+/** The device a member is calling from, to list under them. */
+export type SeenDevice = { id: string; name?: string; platform?: Platform };
 
 // -- limits -------------------------------------------------------------------------
 
@@ -107,6 +129,18 @@ export function validateOp(raw: unknown): Op | string {
 
 // -- storage ------------------------------------------------------------------------
 
+// Added with accounts; spaces made before get it from the constructor.
+const MEMBER_DEVICES = `
+CREATE TABLE IF NOT EXISTS member_devices (
+  member_id TEXT NOT NULL,
+  device_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  platform TEXT NOT NULL,
+  last_seen INTEGER NOT NULL,
+  PRIMARY KEY (member_id, device_id)
+) WITHOUT ROWID;
+`;
+
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS meta (
   id INTEGER PRIMARY KEY CHECK (id = 1),
@@ -138,7 +172,7 @@ CREATE TABLE IF NOT EXISTS entries (
   PRIMARY KEY (c, d, f, s)
 ) WITHOUT ROWID;
 CREATE INDEX IF NOT EXISTS entries_version ON entries (version);
-`;
+${MEMBER_DEVICES}`;
 
 // Spaces made before files moved to R2 kept them in a `blobs` table
 // (hash, type, bytes, created_at). moveFilesToR2() empties and drops it.
@@ -166,7 +200,18 @@ export interface SpaceEnv {
  *  typing recurses into `Json` too deeply for tsc, so callers can use this
  *  instead (the values cross RPC unchanged: they're plain data). */
 export type SpaceRpc = {
-  [K in "create" | "join" | "info" | "leave" | "removeDevice" | "resetCode" | "preview" | "push" | "changes" | "moveFilesToR2"]: (
+  [K in
+    | "create"
+    | "join"
+    | "info"
+    | "leave"
+    | "removeDevice"
+    | "resetCode"
+    | "relinkMember"
+    | "preview"
+    | "push"
+    | "changes"
+    | "moveFilesToR2"]: (
     ...args: Parameters<SpaceObject[K]>
   ) => Promise<ReturnType<SpaceObject[K]>>;
 } & { fetch(request: Request): Promise<Response> };
@@ -183,7 +228,9 @@ export class SpaceObject extends DurableObject<SpaceEnv> {
     super(ctx, env);
     this.sql = ctx.storage.sql;
     // Tables are created by create(), so ids that were never a space (or
-    // whose data was deleted) keep no storage.
+    // whose data was deleted) keep no storage. Spaces from before accounts
+    // get the member_devices table here.
+    if (this.meta()) this.sql.exec(MEMBER_DEVICES);
   }
 
   // -- membership -----------------------------------------------------------------
@@ -204,6 +251,7 @@ export class SpaceObject extends DurableObject<SpaceEnv> {
         this.upsertDevice(device, now);
       }
     });
+    this.seeDevice(device.id, joinedFrom(device), now);
     return { ok: true, info: this.infoFor(device.id, now) };
   }
 
@@ -211,7 +259,10 @@ export class SpaceObject extends DurableObject<SpaceEnv> {
     const meta = this.meta();
     if (!meta || meta.code !== code) return { ok: false, error: "NOT_FOUND" };
     const now = Date.now();
-    if (this.touch(device.id, now)) return { ok: true, info: this.infoFor(device.id, now) };
+    if (this.touch(device.id, now)) {
+      this.seeDevice(device.id, joinedFrom(device), now);
+      return { ok: true, info: this.infoFor(device.id, now) };
+    }
 
     const full = this.ctx.storage.transactionSync(() => {
       this.sql.exec(
@@ -229,13 +280,17 @@ export class SpaceObject extends DurableObject<SpaceEnv> {
     });
     if (full) return { ok: false, error: "FULL" };
     if (meta.empty_since !== null) this.ctx.storage.deleteAlarm();
+    this.seeDevice(device.id, joinedFrom(device), now);
     return { ok: true, info: this.infoFor(device.id, now) };
   }
 
-  info(deviceId: string): Result<{ info: SpaceInfo }> {
+  /** With `device`, also lists that device under the member (a phone the
+   *  person just signed in on never joined, so this is where it shows up). */
+  info(deviceId: string, device?: SeenDevice): Result<{ info: SpaceInfo }> {
     const now = Date.now();
     const denied = this.memberCheck(deviceId, now);
     if (denied) return denied;
+    if (device) this.seeDevice(deviceId, device, now);
     return { ok: true, info: this.infoFor(deviceId, now) };
   }
 
@@ -267,6 +322,44 @@ export class SpaceObject extends DurableObject<SpaceEnv> {
     const previous = this.meta()!.code;
     this.sql.exec("UPDATE meta SET code = ?", code);
     return { ok: true, code, previous, time: now };
+  }
+
+  /** Moves membership from `from` to `to`: an anonymous user who signed in
+   *  to a real account, or a device from before accounts moving to its
+   *  user. Ownership and listed devices move too. If `to` is already a
+   *  member, `from` simply leaves. Nothing happens when `from` isn't an
+   *  active member. */
+  relinkMember(from: string, to: string): Result<{ moved: boolean }> {
+    const now = Date.now();
+    if (!this.meta()) return { ok: false, error: "NOT_FOUND" };
+    if (from === to || !this.isActive(from)) return { ok: true, moved: false };
+    this.ctx.storage.transactionSync(() => {
+      if (this.isActive(to)) {
+        this.sql.exec("UPDATE devices SET state = 'left' WHERE id = ?", from);
+      } else {
+        this.sql.exec("DELETE FROM devices WHERE id = ?", to);
+        this.sql.exec("UPDATE devices SET id = ?, last_seen = ? WHERE id = ?", to, now, from);
+      }
+      this.sql.exec(
+        `INSERT INTO member_devices (member_id, device_id, name, platform, last_seen)
+         SELECT ?, device_id, name, platform, last_seen FROM member_devices WHERE member_id = ?
+         ON CONFLICT (member_id, device_id) DO UPDATE SET last_seen = MAX(last_seen, excluded.last_seen)`,
+        to,
+        from,
+      );
+      this.sql.exec("DELETE FROM member_devices WHERE member_id = ?", from);
+      if (this.meta()!.owner === from) this.sql.exec("UPDATE meta SET owner = ?", to);
+      this.fixOwner();
+    });
+    // Its open sockets were tagged with the old id; the app reconnects.
+    for (const ws of this.ctx.getWebSockets(from)) {
+      try {
+        ws.close(1012, "relinked");
+      } catch {
+        // Already closed.
+      }
+    }
+    return { ok: true, moved: true };
   }
 
   // -- files ----------------------------------------------------------------------
@@ -520,6 +613,24 @@ export class SpaceObject extends DurableObject<SpaceEnv> {
     );
   }
 
+  /** Lists `device` under `memberId`, or marks it seen. Writes at most once
+   *  an hour per device unless its name changed, like touch(). */
+  private seeDevice(memberId: string, device: SeenDevice | null, now: number) {
+    if (!device) return;
+    this.sql.exec(
+      `INSERT INTO member_devices (member_id, device_id, name, platform, last_seen) VALUES (?, ?, ?, ?, ?)
+       ON CONFLICT (member_id, device_id) DO UPDATE SET
+         name = excluded.name, platform = excluded.platform, last_seen = excluded.last_seen
+       WHERE member_devices.last_seen <= ? OR member_devices.name != excluded.name`,
+      memberId,
+      device.id,
+      device.name ?? "",
+      device.platform ?? "other",
+      now,
+      now - SEEN_EVERY_MS,
+    );
+  }
+
   /** If the owner is no longer active, the earliest-joined active device
    *  takes over. With none, the owner stays as it was. */
   private fixOwner() {
@@ -562,6 +673,13 @@ export class SpaceObject extends DurableObject<SpaceEnv> {
         platform: d.platform as Platform,
         joinedAt: d.joined_at,
         lastSeen: d.last_seen,
+        devices: this.sql
+          .exec<{ device_id: string; name: string; platform: string; last_seen: number }>(
+            "SELECT device_id, name, platform, last_seen FROM member_devices WHERE member_id = ? ORDER BY last_seen DESC",
+            d.id,
+          )
+          .toArray()
+          .map((m) => ({ id: m.device_id, name: m.name, platform: m.platform as Platform, lastSeen: m.last_seen })),
       }));
     return {
       spaceId: meta.space_id,
@@ -628,4 +746,10 @@ function zeroOp(op: Op): Op {
   const out: Op = { c: op.c, d: op.d, f: op.f, s: op.s, v: null, t: ZERO_TIMESTAMP };
   if (op.k === "parent") out.k = "parent";
   return out;
+}
+
+/** The device a create or join came from, when it isn't the member itself. */
+function joinedFrom(device: NewDevice): SeenDevice | null {
+  if (!device.deviceId || device.deviceId === device.id) return null;
+  return { id: device.deviceId, name: device.name, platform: device.platform };
 }
