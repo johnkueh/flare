@@ -1,0 +1,26 @@
+{
+  "name": "@flare/example",
+  "private": true,
+  "type": "module",
+  "description": "A shared grocery list on Flare: the sync server and @flare/auth in one Worker, with a web page. Used to test the two end to end.",
+  "scripts": {
+    "dev": "wrangler dev",
+    "db:local": "node scripts/db-local.mjs",
+    "test": "vitest run",
+    "e2e": "node scripts/e2e.mjs",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@flare/auth": "link:../auth",
+    "@sync/server": "link:../server"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "0.22.0",
+    "@cloudflare/workers-types": "^5.20261010.1",
+    "@types/node": "^22",
+    "playwright-core": "1.56.1",
+    "typescript": "^5.9.3",
+    "vitest": "~4.1.11",
+    "wrangler": "4.124.0"
+  }
+}

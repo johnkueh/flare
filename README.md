@@ -59,3 +59,4 @@ try store.putDoc(collection: "groceries", doc: id, fieldsJson: #"{"name":"Milk"}
 
 - [SYNC.md](SYNC.md): setup in full, the data model, web pages, releasing
 - [PROTOCOL.md](PROTOCOL.md): the wire format, for anyone writing a client
+- [AUTH.md](AUTH.md): accounts on Better Auth, signing in from a phone

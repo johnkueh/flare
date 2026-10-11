@@ -1,0 +1,31 @@
+{
+  "name": "@flare/auth",
+  "private": true,
+  "type": "module",
+  "description": "Accounts for apps on Flare: Better Auth with anonymous sign-in gated by App Attest and Android key attestation. Workers install it from GitHub (see the README).",
+  "exports": {
+    ".": "./src/index.ts",
+    "./plugin": "./src/plugin.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "gen:migration": "tsx scripts/gen-migration.ts"
+  },
+  "dependencies": {
+    "@peculiar/x509": "^2.1.0",
+    "better-auth": "^1.7.7",
+    "cborg": "^6.1.3",
+    "reflect-metadata": "^0.2.2",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "0.22.0",
+    "@cloudflare/workers-types": "^5.20261010.1",
+    "@types/node": "^22",
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.3",
+    "vitest": "~4.1.11",
+    "wrangler": "4.124.0"
+  }
+}

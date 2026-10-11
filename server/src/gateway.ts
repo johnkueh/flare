@@ -5,8 +5,8 @@
 //   "services": [{ "binding": "SYNC", "service": "my-api", "entrypoint": "SyncGateway" }]
 //
 // Service bindings are private to the account, so the gateway trusts the
-// device id its caller passes: the calling Worker decides who a device is
-// (a cookie, a session, whatever suits that app).
+// member id its caller passes: the calling Worker decides who the browser
+// is (@flare/auth's whoIs gives the user, and a `web:` device per session).
 
 import { WorkerEntrypoint } from "cloudflare:workers";
 import { lookupCode, parseInviteCode } from "./codes";
@@ -18,6 +18,7 @@ import {
   type InvitePreview,
   type NewDevice,
   type Result,
+  type SeenDevice,
   type SpaceEnv,
   type SpaceInfo,
   type SpaceRpc,
@@ -59,9 +60,10 @@ export class SyncGateway extends WorkerEntrypoint<GatewayEnv> {
     return space.join(parsed, device);
   }
 
-  async info(spaceId: string, deviceId: string): Promise<Result<{ info: SpaceInfo }>> {
+  /** With `device`, lists the browser under the member. */
+  async info(spaceId: string, deviceId: string, device?: SeenDevice): Promise<Result<{ info: SpaceInfo }>> {
     const space = this.space(spaceId);
-    return space ? space.info(deviceId) : { ok: false, error: "NOT_FOUND" };
+    return space ? space.info(deviceId, device) : { ok: false, error: "NOT_FOUND" };
   }
 
   async leave(spaceId: string, deviceId: string): Promise<Result<{ time: number }>> {
@@ -91,14 +93,16 @@ export class SyncGateway extends WorkerEntrypoint<GatewayEnv> {
     return { ok: true, version: since, docs: foldDocs(ops, collection, orderBy) };
   }
 
-  /** Applies writes as this device, stamped with the server's clock. */
-  async write(spaceId: string, deviceId: string, writes: Write[]): Promise<Result<{ version: number }>> {
+  /** Applies writes as this member, stamped with the server's clock. Pass
+   *  the browser's own id as `device` so two browsers of one person never
+   *  stamp the same timestamp. */
+  async write(spaceId: string, deviceId: string, writes: Write[], device?: string): Promise<Result<{ version: number }>> {
     const space = this.space(spaceId);
     if (!space) return { ok: false, error: "NOT_FOUND" };
     if (!Array.isArray(writes) || writes.length > MAX_OPS_PER_PUSH) {
       return { ok: false, error: "INVALID_OPS", reason: "writes" };
     }
-    const result = await space.push(deviceId, stampWrites(writes, await nodeId(deviceId), Date.now()));
+    const result = await space.push(deviceId, stampWrites(writes, await nodeId(device ?? deviceId), Date.now()));
     return result.ok ? { ok: true, version: result.version } : result;
   }
 
@@ -134,7 +138,7 @@ export class SyncGateway extends WorkerEntrypoint<GatewayEnv> {
 }
 
 /** A device's timestamp node: 16 hex characters of its id's SHA-256. */
-async function nodeId(deviceId: string): Promise<string> {
+export async function nodeId(deviceId: string): Promise<string> {
   const hash = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(deviceId)));
   return [...hash.subarray(0, 8)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }

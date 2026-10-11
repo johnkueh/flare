@@ -1,6 +1,7 @@
 package com.johnkueh.sync.client
 
 import java.io.IOException
+import java.net.URLEncoder
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -48,12 +49,17 @@ val SyncJson = Json {
  * `/spaces` over HTTP (`PROTOCOL.md`, "HTTP"), the Kotlin side of the Swift
  * package's `SpaceClient`. A request that comes back `ATTESTATION_REQUIRED`
  * gets a fresh token and is tried once more.
+ *
+ * Every request says which device it's from (`X-Device-Platform`, and
+ * `X-Device-Name` when [deviceName] is given), so a server with accounts can
+ * list this phone under its user.
  */
 class SpaceClient(
     baseUrl: String,
     private val tokens: SpaceTokens,
     private val platform: String = "android",
     private val http: OkHttpClient = defaultHttp(),
+    private val deviceName: String? = null,
 ) {
     private val baseUrl = baseUrl.trimEnd('/')
 
@@ -91,11 +97,18 @@ class SpaceClient(
      *  every push that changed something. */
     suspend fun live(spaceId: String, listener: WebSocketListener): WebSocket {
         val url = "$baseUrl/spaces/$spaceId/live".toHttpUrl()
-        val request = Request.Builder().url(url).header("Authorization", "Bearer ${tokens.token()}").build()
+        val request = Request.Builder().url(url).header("Authorization", "Bearer ${tokens.token()}").describeDevice().build()
         return http.newWebSocket(request, listener)
     }
 
     // Plumbing
+
+    private fun Request.Builder.describeDevice(): Request.Builder {
+        header("X-Device-Platform", platform)
+        // Header values are ASCII; a name like "Zoë's Pixel" goes percent-encoded.
+        if (deviceName != null) header("X-Device-Name", URLEncoder.encode(deviceName, "UTF-8").replace("+", "%20"))
+        return this
+    }
 
     private suspend fun <T> json(method: String, path: String, body: String?, serializer: KSerializer<T>): T =
         SyncJson.decodeFromString(serializer, text(method, path, body?.toRequestBody(JSON)))
@@ -119,6 +132,7 @@ class SpaceClient(
             .url(baseUrl + path)
             .header("Accept", "application/json")
             .header("Authorization", "Bearer ${tokens.token()}")
+            .describeDevice()
             .method(method, body)
             .build()
         http.newCall(request).execute().use { response ->
