@@ -40,7 +40,7 @@ final class ListModel {
     private static func path(_ spaceID: String) -> String {
         let folder = URL.applicationSupportDirectory
         try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        return folder.appending(path: "\(spaceID).sqlite").path()
+        return folder.appending(path: "\(spaceID).sqlite").path(percentEncoded: false)
     }
 
     /// Drops a list's local copy (after signing out).

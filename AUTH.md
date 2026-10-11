@@ -122,6 +122,7 @@ as apps. Email codes go to `/dev/outbox` instead of an inbox while
 `DEV_OUTBOX` is on.
 
 ```sh
+(cd auth && pnpm install)   # the Worker bundles @flare/auth from this checkout
 cd example
 pnpm install
 cp .dev.vars.example .dev.vars

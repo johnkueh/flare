@@ -80,7 +80,7 @@ struct HomeView: View {
         } else {
             Section {
                 HStack {
-                    TextField("you@example.com", text: $email)
+                    TextField("Email", text: $email)
                         .keyboardType(.emailAddress)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()

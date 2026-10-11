@@ -48,6 +48,7 @@ final class AppModel {
             var request = URLRequest(url: Self.server.appending(path: "v1/me/spaces"))
             request.setValue("Bearer \(try await auth.token())", forHTTPHeaderField: "Authorization")
             request.setValue("ios", forHTTPHeaderField: "X-Device-Platform")
+            request.setValue(UIDevice.current.name.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed), forHTTPHeaderField: "X-Device-Name")
             let (data, response) = try await URLSession.shared.data(for: request)
             if (response as? HTTPURLResponse)?.statusCode == 401 {
                 // The session ended on the server: start again as a new user.

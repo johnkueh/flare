@@ -30,8 +30,11 @@ struct ListView: View {
                                     .foregroundStyle(item.done == true ? Color.accentColor : .secondary)
                                 Text(item.name ?? "")
                                     .strikethrough(item.done == true)
-                                    .foregroundStyle(item.done == true ? .secondary : .primary)
+                                    .foregroundStyle(item.done == true ? Color.secondary : Color.primary)
+                                Spacer()
                             }
+                            // The whole row ticks it, not just the words.
+                            .contentShape(Rectangle())
                         }
                         .accessibilityLabel("\(item.name ?? ""), \(item.done == true ? "done" : "not done")")
                     }

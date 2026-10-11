@@ -1,6 +1,7 @@
 package com.johnkueh.flare.groceries
 
 import android.content.Context
+import android.net.Uri
 import android.os.Build
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -51,6 +52,7 @@ class AppModel(private val context: Context) {
                 val request = Request.Builder().url("${BuildConfig.SERVER}/v1/me/spaces")
                     .header("Authorization", "Bearer ${auth.token()}")
                     .header("X-Device-Platform", "android")
+                    .header("X-Device-Name", Uri.encode(deviceName))
                     .build()
                 http.newCall(request).execute().use { response ->
                     if (response.code == 401) null
