@@ -96,11 +96,14 @@ a member: same `Info`, nothing changes. 12 active devices already:
 ```json
 { "spaceId": "…", "name": "John's household", "code": "7KQ2M9XD", "owner": "<device id>",
   "you": "<device id>", "version": 214, "time": 1760000000000,
-  "devices": [{ "id": "…", "name": "John", "platform": "ios", "joinedAt": 0, "lastSeen": 0 }] }
+  "devices": [{ "id": "…", "name": "John", "platform": "ios", "joinedAt": 0, "lastSeen": 0,
+                "devices": [{ "id": "<key id>", "name": "John's iPhone", "platform": "ios", "lastSeen": 0 }] }] }
 ```
 
 Not a member (never joined, left, or removed): `403 NOT_MEMBER`. Every
-member request updates `lastSeen`.
+member request updates `lastSeen`. With accounts (AUTH.md) a member is a
+user, and each member's own `devices` are the phones and browsers they've
+used here, newest first; without accounts it's empty.
 
 ### `POST /spaces/{spaceId}/leave`
 

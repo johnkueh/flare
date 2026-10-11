@@ -1,0 +1,14 @@
+{
+  "name": "flare-auth-test",
+  "main": "worker.ts",
+  "compatibility_date": "2026-08-15",
+  "compatibility_flags": ["nodejs_compat"],
+  "vars": {
+    "BETTER_AUTH_SECRET": "test-secret-test-secret-test-secret-0",
+    "BETTER_AUTH_URL": "https://api.test",
+    "APP_ATTEST_APP_IDS": "ABCDE12345.com.example.app",
+    "APP_ATTEST_ALLOW_DEVELOPMENT": "true",
+    "ANDROID_APP_IDS": "com.johnkueh.cooked"
+  },
+  "d1_databases": [{ "binding": "DB", "database_name": "flare-auth-test", "database_id": "00000000-0000-0000-0000-000000000000" }]
+}

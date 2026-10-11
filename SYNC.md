@@ -26,7 +26,7 @@ repo on every platform and bump it together.
 - **Server.** `pnpm add "@sync/server@github:johnkueh/flare#<tag>&path:/server"`,
   export `SpaceObject` (and `SyncGateway` if a web page needs it) from your
   Worker, bind `SPACES` (a SQLite Durable Object), `DB` (D1 with
-  `server/migrations/space_codes.sql` applied) and `SPACE_FILES` (R2). Call
+  `server/migrations/space_codes.sql` and `space_members.sql` applied) and `SPACE_FILES` (R2). Call
   `spaceHttp(request, env, { prefix, authenticate })` before your router, and
   the `spaces.ts` functions from your JSON routes once you know the device.
   Never rename the exported class: Durable Objects are bound by its name.
@@ -38,7 +38,7 @@ repo on every platform and bump it together.
   `collections` with `schemaMismatches`. Nothing is generated from it.
 - **iOS.** Add the package `https://github.com/johnkueh/flare` (exact
   version or commit), link `SyncKit` and `SyncClient`, give `SpaceClient` a
-  `SpaceTokens`, make your file store a `SpaceFileStore`, and run `SyncPass` /
+  `SpaceTokens` (`FlareAuth`, with `@flare/auth`: AUTH.md), make your file store a `SpaceFileStore`, and run `SyncPass` /
   `LiveSocket` when it suits you.
 - **Android.** Add two repositories and one dependency:
 

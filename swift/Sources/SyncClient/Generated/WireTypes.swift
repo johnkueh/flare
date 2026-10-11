@@ -7,23 +7,42 @@ import Foundation
 
 /// A space as the server describes it (`Info` in PROTOCOL.md).
 public struct SpaceInfo: Codable, Sendable, Hashable {
-    /// A device in the space. Times are milliseconds since 1970.
+    /// A member of the space. Times are milliseconds since 1970. With
+    /// accounts (AUTH.md) the member is a user, and `devices` are the phones
+    /// and browsers they've used here, newest first.
     public struct Device: Codable, Sendable, Hashable {
         public var id: String
         public var name: String
         public var platform: String
         public var joinedAt: Int
         public var lastSeen: Int
+        public var devices: [SpaceInfo.MemberDevice]
 
-        public init(id: String, name: String, platform: String, joinedAt: Int = 0, lastSeen: Int = 0) {
+        public init(id: String, name: String, platform: String, joinedAt: Int = 0, lastSeen: Int = 0, devices: [SpaceInfo.MemberDevice] = []) {
             self.id = id
             self.name = name
             self.platform = platform
             self.joinedAt = joinedAt
             self.lastSeen = lastSeen
+            self.devices = devices
         }
 
-        private enum CodingKeys: String, CodingKey { case id, name, platform, joinedAt, lastSeen }
+        private enum CodingKeys: String, CodingKey { case id, name, platform, joinedAt, lastSeen, devices }
+    }
+
+    /// A phone or browser a member has used in the space.
+    public struct MemberDevice: Codable, Sendable, Hashable, Identifiable {
+        public var id: String
+        public var name: String
+        public var platform: String
+        public var lastSeen: Int
+
+        public init(id: String, name: String, platform: String, lastSeen: Int = 0) {
+            self.id = id
+            self.name = name
+            self.platform = platform
+            self.lastSeen = lastSeen
+        }
     }
 
     public var spaceId: String
@@ -102,6 +121,7 @@ extension SpaceInfo.Device {
         platform = try container.decode(String.self, forKey: .platform)
         joinedAt = try container.decodeIfPresent(Int.self, forKey: .joinedAt) ?? 0
         lastSeen = try container.decodeIfPresent(Int.self, forKey: .lastSeen) ?? 0
+        devices = try container.decodeIfPresent([SpaceInfo.MemberDevice].self, forKey: .devices) ?? []
     }
 }
 
