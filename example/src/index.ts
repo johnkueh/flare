@@ -166,12 +166,23 @@ function platform(value: unknown): Platform {
 /** What the app calls this device (X-Device-Name), or a guess from the
  *  browser's User-Agent. */
 function deviceName(request: Request): string {
-  const named = request.headers.get("X-Device-Name")?.trim();
+  const named = decoded(request.headers.get("X-Device-Name") ?? "").trim();
   if (named) return named.slice(0, 60);
+  const phone = request.headers.get("X-Device-Platform");
+  if (phone === "ios" || phone === "android") return phone === "ios" ? "iPhone" : "Android phone";
   const ua = request.headers.get("User-Agent") ?? "";
   const browser = /Firefox\//.test(ua) ? "Firefox" : /Edg\//.test(ua) ? "Edge" : /Chrome\//.test(ua) ? "Chrome" : /Safari\//.test(ua) ? "Safari" : "Browser";
   const os = /iPhone|iPad/.test(ua) ? "iOS" : /Android/.test(ua) ? "Android" : /Mac OS X/.test(ua) ? "Mac" : /Windows/.test(ua) ? "Windows" : /Linux/.test(ua) ? "Linux" : "";
   return os ? `${browser} on ${os}` : browser;
+}
+
+/** SpaceClient percent-encodes the name, since header values are ASCII. */
+function decoded(value: string): string {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
 }
 
 // -- email codes --------------------------------------------------------------

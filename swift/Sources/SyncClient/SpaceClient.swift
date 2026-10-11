@@ -32,20 +32,26 @@ public protocol SpaceTokens: Sendable {
 
 /// `/spaces` over HTTP (`PROTOCOL.md`, "HTTP"). A request that comes back
 /// `ATTESTATION_REQUIRED` gets a fresh token and is tried once more.
+///
+/// Every request says which device it's from (`X-Device-Platform`, and
+/// `X-Device-Name` when `deviceName` is given), so a server with accounts
+/// can list this phone under its user.
 public final class SpaceClient: Sendable {
     public let baseURL: URL
     private let platform: String
+    private let deviceName: String?
     private let tokens: any SpaceTokens
     private let session: URLSession
     private let isOffline: @Sendable () -> Bool
 
     /// `isOffline` lets a debug switch fail every request as if offline.
     public init(
-        baseURL: URL, platform: String = "ios", tokens: any SpaceTokens, session: URLSession = .shared,
-        isOffline: @escaping @Sendable () -> Bool = { false }
+        baseURL: URL, platform: String = "ios", deviceName: String? = nil, tokens: any SpaceTokens,
+        session: URLSession = .shared, isOffline: @escaping @Sendable () -> Bool = { false }
     ) {
         self.baseURL = baseURL
         self.platform = platform
+        self.deviceName = deviceName
         self.tokens = tokens
         self.session = session
         self.isOffline = isOffline
@@ -99,6 +105,7 @@ public final class SpaceClient: Sendable {
         components.scheme = components.scheme == "http" ? "ws" : "wss"
         var request = URLRequest(url: components.url!)
         request.setValue("Bearer \(try await tokens.token())", forHTTPHeaderField: "Authorization")
+        describeDevice(&request)
         return session.webSocketTask(with: request)
     }
 
@@ -107,6 +114,14 @@ public final class SpaceClient: Sendable {
     private struct ErrorBody: Decodable {
         var code: String
         var message: String?
+    }
+
+    private func describeDevice(_ request: inout URLRequest) {
+        request.setValue(platform, forHTTPHeaderField: "X-Device-Platform")
+        // Header values are ASCII; a name like "Zoë’s iPhone" goes percent-encoded.
+        if let name = deviceName?.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) {
+            request.setValue(name, forHTTPHeaderField: "X-Device-Name")
+        }
     }
 
     private func send<Response: Decodable>(_ method: String, _ path: String) async throws -> Response {
@@ -140,6 +155,7 @@ public final class SpaceClient: Sendable {
         request.timeoutInterval = 20
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.setValue("Bearer \(try await tokens.token())", forHTTPHeaderField: "Authorization")
+        describeDevice(&request)
         if let body {
             request.setValue(contentType, forHTTPHeaderField: "Content-Type")
             request.httpBody = body

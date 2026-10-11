@@ -19,13 +19,25 @@ data class SpaceInfo(
     val time: Long = 0,
     val devices: List<SpaceInfo.Device> = emptyList(),
 ) {
-    /** A device in the space. Times are milliseconds since 1970. */
+    /** A member of the space. Times are milliseconds since 1970. With
+     *  accounts (AUTH.md) the member is a user, and [devices] are the phones
+     *  and browsers they've used here, newest first. */
     @Serializable
     data class Device(
         val id: String,
         val name: String,
         val platform: String,
         val joinedAt: Long = 0,
+        val lastSeen: Long = 0,
+        val devices: List<MemberDevice> = emptyList(),
+    )
+
+    /** A phone or browser a member has used in the space. */
+    @Serializable
+    data class MemberDevice(
+        val id: String,
+        val name: String,
+        val platform: String,
         val lastSeen: Long = 0,
     )
 }

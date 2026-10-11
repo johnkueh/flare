@@ -59,6 +59,8 @@ A space's member is the **user**, not the phone. Pass `whoIs(...).userId`
 as the member id to `createSpace`, `joinSpace` and the rest, and the
 `deviceId` as `NewDevice.deviceId` (or `spaceInfo`'s `device`) so the
 phone or browser is listed under them in `SpaceInfo.devices[].devices`.
+`SpaceClient` says which device it is on every request (`X-Device-Platform`,
+and `X-Device-Name`, percent-encoded, when it's given a `deviceName`).
 
 - **A new phone** signed in to the same account is already a member of
   everything: no restore step.
@@ -115,8 +117,9 @@ not encrypted storage, so as not to depend on androidx.security.
 ## Try it: the example
 
 `example/` is a shared grocery list. One Worker serves auth, the spaces
-and a web page; phones would use the same routes through `FlareAuth`.
-Email codes go to `/dev/outbox` instead of an inbox while `DEV_OUTBOX` is on.
+and a web page, and `example/ios` and `example/android` are the same list
+as apps. Email codes go to `/dev/outbox` instead of an inbox while
+`DEV_OUTBOX` is on.
 
 ```sh
 cd example
@@ -126,6 +129,34 @@ pnpm db:local && pnpm dev   # http://localhost:8787
 pnpm test                   # the Worker: sign-in, sharing, linking, a second phone
 pnpm e2e                    # two people in Chromium: sign in, share, live updates
 ```
+
+### Phones
+
+Both apps sign in anonymously on first launch (`FlareAuth`), keep each list
+in the Rust store and sync it with `SyncPass` and `LiveSocket`. They write
+the same `groceries` documents as the web page, so a list open in all three
+stays level. Signing in with an email code moves the phone's lists to that
+account. Start the Worker (`pnpm dev`) first.
+
+```sh
+# iOS simulator: talks to http://localhost:8787. Needs XcodeGen (brew install xcodegen).
+cd example/ios
+xcodegen
+xcodebuild -project Groceries.xcodeproj -scheme Groceries \
+  -destination 'platform=iOS Simulator,name=iPhone 17 Pro' -derivedDataPath build build
+xcrun simctl install booted build/Build/Products/Debug-iphonesimulator/Groceries.app
+xcrun simctl launch booted com.johnkueh.flare.groceries
+
+# Android emulator: talks to http://10.0.2.2:8787, the emulator's name for the Mac.
+./gradlew -p example/android :app:installDebug     # from the repo root
+adb shell am start -n com.johnkueh.flare.groceries/.MainActivity
+
+curl 'http://localhost:8787/dev/outbox?email=you@example.com'   # the code a phone asked for
+```
+
+For another server, launch the iOS app with `-server https://…` or build
+the Android one with `-Pserver=https://…`. Neither attests on a simulator
+or emulator, so the server needs `FLARE_AUTH_ALLOW_UNATTESTED=true`.
 
 ## Commands
 
