@@ -26,7 +26,8 @@ writes instantly. Sync happens in the background.
 
 **Merges that make sense.** Two people edit at once and nothing gets lost:
 newest edit wins per field, lists keep their order, sets and counters
-merge.
+merge. It's the approach Figma and Linear use for their data, not a text
+CRDT like Yjs ([why](SYNC.md#why-not-yjs)).
 <br clear="right">
 
 <img align="right" src="docs/platforms.svg" width="288" alt="One Rust core on iPhone, Android and the web">
