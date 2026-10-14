@@ -1,0 +1,22 @@
+[package]
+name = "telemetry-sdk"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+description = "Product analytics client: a crash-safe disk queue, batching and retry, posting to the Flare telemetry Worker (Cloudflare Basin)."
+
+[lib]
+# Linked into an app's own UniFFI library (its Rust core, or sync-ffi), so
+# the app ships one native artefact; the bindings come out as a separate
+# `telemetry_sdk` module.
+crate-type = ["lib"]
+
+[features]
+uniffi = ["dep:uniffi"]
+
+[dependencies]
+getrandom = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+ureq = { version = "3", default-features = false, features = ["rustls"] }
+uniffi = { version = "0.32", optional = true }

@@ -1,0 +1,22 @@
+{
+  "fields": [
+    { "name": "received_at", "type": "timestamp", "required": true },
+    { "name": "client_ts", "type": "timestamp", "required": true },
+    { "name": "app_id", "type": "string", "required": true },
+    { "name": "env", "type": "string", "required": true },
+    { "name": "platform", "type": "string", "required": true },
+    { "name": "install_id", "type": "string", "required": true },
+    { "name": "session_id", "type": "string", "required": false },
+    { "name": "user_id", "type": "string", "required": false },
+    { "name": "event_id", "type": "string", "required": true },
+    { "name": "name", "type": "string", "required": true },
+    { "name": "params", "type": "json", "required": false },
+    { "name": "app_version", "type": "string", "required": false },
+    { "name": "app_build", "type": "string", "required": false },
+    { "name": "os_version", "type": "string", "required": false },
+    { "name": "device_model", "type": "string", "required": false },
+    { "name": "locale", "type": "string", "required": false },
+    { "name": "country", "type": "string", "required": false },
+    { "name": "sdk", "type": "string", "required": false }
+  ]
+}

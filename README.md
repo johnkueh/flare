@@ -6,7 +6,7 @@
 Worker: phones work offline, share data with each other, and catch up the
 moment they're back online.
 
-Sync is the first piece. Auth and events come next.
+Sync is the first piece, then auth and product analytics ([TELEMETRY.md](TELEMETRY.md)).
 
 ## What you get
 
@@ -61,3 +61,4 @@ try store.putDoc(collection: "groceries", doc: id, fieldsJson: #"{"name":"Milk"}
 - [SYNC.md](SYNC.md): setup in full, the data model, web pages, releasing
 - [PROTOCOL.md](PROTOCOL.md): the wire format, for anyone writing a client
 - [AUTH.md](AUTH.md): accounts on Better Auth, signing in from a phone
+- [TELEMETRY.md](TELEMETRY.md): product analytics into Cloudflare Basin, from a Rust SDK
