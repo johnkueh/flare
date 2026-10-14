@@ -89,6 +89,34 @@ Deleting writes a tombstone; any later edit brings the document back.
 Long shared text (a document edited by two people at once) is the
 one thing this doesn't merge well; that is the planned Loro spike.
 
+## How conflicts resolve
+
+Flare isn't a text CRDT like Yjs or Automerge. It merges the way Figma's
+multiplayer and Linear's sync engine do: every property is its own
+register, and the newest write to it wins. Two people editing different
+fields of the same document both keep their edits; two people editing the
+same field end up with the later one, on every phone.
+
+- **Per-property last writer wins.** The unit of conflict is one entry
+  (`collection, doc, field, sub`), not the document. "Later" is a hybrid
+  logical clock (wall time, a counter, the device id), corrected by the
+  server's clock, so a phone with a wrong clock still orders edits by when
+  they were made and every phone picks the same winner.
+- **Fractional indexing for order.** A list position is a string that sorts
+  between its neighbours, as in Figma, so a move is one write and two
+  phones inserting in the same gap both land.
+- **Parent links, loops refused.** Nesting is a `parent` field. The server
+  refuses a write that would make a loop and sends back a correction, as
+  Figma's server does for its layer tree.
+- **A server version for catching up.** Every accepted write takes the
+  space's next version, much like Linear's sync ids, so a phone pulls
+  everything after the last version it saw.
+- **Sets and counters** are many small registers (one per member, one per
+  device), so concurrent adds, removes and increments all survive.
+
+What it gives up: two people typing into the same paragraph at once. That
+needs a sequence CRDT, which is the planned Loro spike above.
+
 ## Using it from an app
 
 ```swift

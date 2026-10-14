@@ -85,8 +85,9 @@ section.alt{background:var(--cream)}
 .dots i:nth-child(3){animation-delay:.4s}
 @keyframes hop{0%,30%{opacity:1}31%,100%{opacity:.25}}
 @media (prefers-reduced-motion:reduce){.dots i{animation:none;opacity:1}}
-.built{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.built{display:grid;grid-template-columns:repeat(3,1fr);gap:28px}
 .built p{color:var(--muted)}
+.built p a{color:var(--orange-deep);font-weight:700}
 
 /* Tabs */
 .tabs{display:flex;gap:4px;flex-wrap:wrap}

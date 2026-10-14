@@ -17,7 +17,8 @@ Site: [flare.jkyf.dev](https://flare.jkyf.dev).
   8‑letter invite code. No accounts, no passwords.
 - **Merges that make sense.** Two people edit at once and nothing gets lost:
   newest edit wins per field, lists keep their order, sets and counters
-  merge.
+  merge. It's the approach Figma and Linear use, not a text CRDT like Yjs
+  ([how conflicts resolve](SYNC.md#how-conflicts-resolve)).
 - **iOS, Android and the web.** One Rust core, with Swift and Kotlin on top.
   Web pages read and write through your Worker.
 - **Cheap to run.** One Durable Object per space, photos in R2. Nothing to

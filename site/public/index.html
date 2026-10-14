@@ -122,6 +122,10 @@
           <p>It's the same approach Mozilla uses for Firefox on iOS and Android: the logic is written once in Rust, and UniFFI, Mozilla's binding generator, turns it into Swift and Kotlin. One set of merge rules, one set of tests, every platform.</p>
         </div>
         <div>
+          <h3>Merges like Figma and Linear</h3>
+          <p>Not a text CRDT like Yjs. Every field is its own value and the newest edit wins, lists use fractional indexing, and the server refuses loops in nested items. It's the model Figma's multiplayer and Linear's sync engine are built on. <a href="https://github.com/johnkueh/flare/blob/main/SYNC.md#how-conflicts-resolve">How conflicts resolve</a></p>
+        </div>
+        <div>
           <h3>Cheap, and nothing to babysit</h3>
           <p>One Durable Object per space, photos in R2, accounts in D1. Analytics at small-app volume costs nothing beyond Workers Paid. No servers, no database to run.</p>
         </div>
