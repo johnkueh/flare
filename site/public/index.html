@@ -1,0 +1,339 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Flare: your apps' backend, on Cloudflare</title>
+<meta name="description" content="Offline-first sync, auth and analytics for iOS, Android and web, from one Rust core and your own Cloudflare Worker.">
+<meta property="og:title" content="Flare: your apps' backend, on Cloudflare">
+<meta property="og:description" content="Offline-first sync, auth and analytics for iOS, Android and web, from one Rust core and your own Cloudflare Worker.">
+<meta property="og:image" content="https://flare.jkyf.dev/og.png">
+<meta property="og:url" content="https://flare.jkyf.dev">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="/art/flame.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#FFFAF1; --bg2:#FDF1DF; --card:#FFFFFF; --line:#EAD7BE;
+  --ink:#2B1A10; --muted:#6E5644; --dim:#9C8573;
+  --orange:#F97316; --orange-hi:#FB923C; --orange-deep:#C2410C; --yellow:#FBBF24;
+  --code:#2B1A10; --code-ink:#FDF0D5;
+  --display:"Bricolage Grotesque","Inter",system-ui,sans-serif;
+  --sans:"Inter",system-ui,-apple-system,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 var(--sans);-webkit-font-smoothing:antialiased;overflow-x:hidden}
+img{display:block;max-width:100%}
+a{color:inherit}
+.pixel{image-rendering:pixelated}
+.wrap{max-width:1080px;margin:0 auto;padding:0 20px}
+h1,h2,h3{font-family:var(--display);font-weight:800;line-height:1.04;letter-spacing:-.02em;margin:0}
+.eyebrow{color:var(--orange-deep);font-size:13px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;margin:0 0 14px}
+
+/* Nav */
+nav{display:flex;align-items:center;justify-content:space-between;padding:22px 0}
+.brand{display:flex;align-items:center;gap:10px;text-decoration:none;font-family:var(--display);font-weight:800;font-size:24px;letter-spacing:-.02em}
+.brand img{width:20px;height:28px}
+.navlinks{display:flex;gap:22px;align-items:center;font-weight:600;font-size:15px}
+.navlinks a{text-decoration:none;color:var(--muted)}
+.navlinks a:hover{color:var(--ink)}
+
+/* Buttons */
+.btn{display:inline-flex;align-items:center;gap:10px;padding:13px 20px;border:2px solid var(--ink);border-radius:12px;background:var(--orange);color:#fff;font-weight:700;text-decoration:none;box-shadow:4px 4px 0 var(--ink);transition:transform .08s,box-shadow .08s;font-size:16px;cursor:pointer}
+.btn:hover{transform:translate(-1px,-1px);box-shadow:5px 5px 0 var(--ink)}
+.btn:active{transform:translate(3px,3px);box-shadow:1px 1px 0 var(--ink)}
+.btn.ghost{background:var(--card);color:var(--ink)}
+.btn svg{width:20px;height:20px}
+
+/* Hero */
+.hero{display:grid;grid-template-columns:1.05fr 1fr;gap:40px;align-items:center;padding-top:40px;padding-bottom:70px}
+.hero h1{font-size:clamp(44px,7vw,78px)}
+.hero h1 em{font-style:normal;color:var(--orange)}
+.lede{font-size:19px;color:var(--muted);max-width:520px;margin:22px 0 30px}
+.actions{display:flex;flex-wrap:wrap;gap:14px;margin-bottom:26px}
+.install{display:flex;align-items:center;gap:12px;max-width:100%;background:var(--code);color:var(--code-ink);border-radius:12px;padding:12px 14px;font:14px/1.4 var(--mono)}
+.install code{overflow-x:auto;white-space:nowrap;flex:1;min-width:0}
+.install code::before{content:"$ ";color:var(--orange-hi)}
+.copy{flex:none;background:transparent;border:1.5px solid #6E5644;color:var(--code-ink);border-radius:8px;padding:5px 10px;font:600 12px var(--sans);cursor:pointer}
+.copy:hover{border-color:var(--orange-hi)}
+.art{background:var(--bg2);border:2px solid var(--ink);border-radius:20px;box-shadow:6px 6px 0 var(--ink);padding:18px}
+.art img{width:100%;height:auto}
+
+/* Pieces */
+section{padding:70px 0}
+.band{background:var(--bg2);border-top:2px solid var(--line);border-bottom:2px solid var(--line)}
+.head{max-width:640px;margin-bottom:36px}
+.head h2{font-size:clamp(32px,4.5vw,48px)}
+.head p{color:var(--muted);font-size:18px;margin:14px 0 0}
+.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:22px}
+.card{background:var(--card);border:2px solid var(--ink);border-radius:16px;box-shadow:4px 4px 0 var(--ink);padding:24px;display:flex;flex-direction:column}
+.card img{width:96px;height:64px;margin-bottom:18px}
+.card h3{font-size:26px;margin-bottom:8px}
+.card p{color:var(--muted);margin:0 0 18px;flex:1}
+.card ul{margin:0 0 18px;padding:0;list-style:none;color:var(--muted);font-size:15px}
+.card li{padding-left:18px;position:relative;margin:4px 0}
+.card li::before{content:"";position:absolute;left:2px;top:.62em;width:6px;height:6px;background:var(--orange)}
+.more{font-weight:700;color:var(--orange-deep);text-decoration:none}
+.more:hover{text-decoration:underline}
+
+/* How */
+.flow{display:grid;grid-template-columns:1fr auto 1fr auto 1.2fr;gap:14px;align-items:stretch}
+.node{background:var(--card);border:2px solid var(--ink);border-radius:14px;padding:18px;box-shadow:4px 4px 0 var(--ink)}
+.node b{font-family:var(--display);font-size:20px;display:block;margin-bottom:4px}
+.node span{color:var(--muted);font-size:15px}
+.node .tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.tag{font:600 12px var(--mono);background:var(--bg2);border:1.5px solid var(--line);border-radius:6px;padding:3px 7px;color:var(--ink)}
+.arrow{align-self:center;display:flex;gap:4px}
+.arrow i{width:6px;height:6px;background:var(--orange);animation:blink 1.6s steps(1) infinite}
+.arrow i:nth-child(2){background:var(--yellow);animation-delay:.2s}
+.arrow i:nth-child(3){animation-delay:.4s}
+@keyframes blink{0%{opacity:1}30%{opacity:.3}}
+.mozilla{margin-top:30px;display:flex;gap:14px;align-items:flex-start;background:var(--card);border:2px dashed var(--line);border-radius:14px;padding:18px 20px;color:var(--muted)}
+.mozilla b{color:var(--ink)}
+.mozilla img{width:20px;height:28px;flex:none;margin-top:2px}
+
+/* Code */
+.tabs{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:-2px;position:relative;z-index:1}
+.tab{border:2px solid var(--ink);border-bottom:none;border-radius:10px 10px 0 0;background:var(--bg2);padding:9px 16px;font:700 14px var(--sans);color:var(--muted);cursor:pointer}
+.tab[aria-selected="true"]{background:var(--code);color:var(--code-ink)}
+.panel{background:var(--code);color:var(--code-ink);border:2px solid var(--ink);border-radius:0 14px 14px 14px;box-shadow:6px 6px 0 var(--ink);padding:22px;overflow-x:auto}
+.panel pre{margin:0;font:14px/1.65 var(--mono)}
+.panel .c{color:#B39A84}
+.panel .k{color:var(--orange-hi)}
+.panel .s{color:#FCD34D}
+.panel p{margin:16px 0 0;font:14px/1.5 var(--sans);color:#CDB9A6}
+.panel p a{color:var(--orange-hi)}
+[hidden]{display:none!important}
+
+/* Cost */
+.cost{display:grid;grid-template-columns:repeat(3,1fr);gap:22px}
+.cost div{border-top:3px solid var(--orange);padding-top:14px}
+.cost b{font-family:var(--display);font-size:22px;display:block}
+.cost span{color:var(--muted);font-size:15px}
+
+/* Footer */
+footer{padding:50px 0 60px;border-top:2px solid var(--line);color:var(--muted);font-size:15px}
+footer .wrap{display:flex;flex-wrap:wrap;gap:16px;justify-content:space-between;align-items:center}
+footer nav{padding:0;gap:20px;display:flex}
+footer a{text-decoration:none;font-weight:600}
+footer a:hover{color:var(--ink)}
+
+@media (max-width:860px){
+  .hero{grid-template-columns:1fr;padding-top:10px}
+  .hero>*{min-width:0}
+  .cards,.cost{grid-template-columns:1fr}
+  .flow{grid-template-columns:1fr}
+  .arrow{transform:rotate(90deg);justify-self:center}
+  .navlinks a:not(.gh){display:none}
+}
+@media (prefers-reduced-motion:reduce){.arrow i{animation:none}}
+</style>
+</head>
+<body>
+<header class="wrap">
+  <nav>
+    <a class="brand" href="/"><img class="pixel" src="/art/flame.svg" alt="">Flare</a>
+    <div class="navlinks">
+      <a href="#pieces">Pieces</a>
+      <a href="#how">How it works</a>
+      <a href="#add">Add it</a>
+      <a class="gh" href="https://github.com/johnkueh/flare">GitHub</a>
+    </div>
+  </nav>
+</header>
+
+<main>
+  <div class="wrap hero">
+    <div>
+      <p class="eyebrow">Open source · Rust · Cloudflare</p>
+      <h1>Your apps' backend, on <em>Cloudflare</em>.</h1>
+      <p class="lede">Like Firebase, but it's your own Worker. Phones work offline, share data with each other, sign in and send analytics, from one Rust core on iOS, Android and the web.</p>
+      <div class="actions">
+        <a class="btn" href="https://github.com/johnkueh/flare">
+          <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
+          View on GitHub
+        </a>
+        <a class="btn ghost" href="#add">Add it to an app</a>
+      </div>
+      <div class="install">
+        <code id="install">pnpm add "@sync/server@github:johnkueh/flare#0.2.0&amp;path:/server"</code>
+        <button class="copy" type="button" data-copy="install">Copy</button>
+      </div>
+    </div>
+    <div class="art"><img class="pixel" src="/art/hero.svg" width="104" height="60" alt="Four phones linked by dotted lines to a cloud with a flame on top"></div>
+  </div>
+
+  <section id="pieces" class="band">
+    <div class="wrap">
+      <div class="head">
+        <p class="eyebrow">Three pieces</p>
+        <h2>Everything an app needs from a server.</h2>
+        <p>Use one or all three. Each is a package you add to your own Worker, with a small Swift and Kotlin side.</p>
+      </div>
+      <div class="cards">
+        <article class="card">
+          <img class="pixel" src="/art/sync.svg" alt="">
+          <h3>Sync</h3>
+          <p>Every phone keeps a full copy in SQLite and writes instantly. Changes sync in the background, and merge without losing anything.</p>
+          <ul>
+            <li>Shared spaces with an 8-letter invite code</li>
+            <li>Newest edit wins per field; lists keep their order</li>
+            <li>Live updates and photos in R2</li>
+          </ul>
+          <a class="more" href="https://github.com/johnkueh/flare/blob/main/SYNC.md">Read SYNC.md →</a>
+        </article>
+        <article class="card">
+          <img class="pixel" src="/art/auth.svg" alt="">
+          <h3>Auth</h3>
+          <p>Every phone is signed in from its first launch, and proves it's a genuine copy of your app. A real account later keeps everything.</p>
+          <ul>
+            <li>Built on Better Auth, stored in D1</li>
+            <li>App Attest and Android key attestation</li>
+            <li>Apple and email codes; cookies for the web</li>
+          </ul>
+          <a class="more" href="https://github.com/johnkueh/flare/blob/main/AUTH.md">Read AUTH.md →</a>
+        </article>
+        <article class="card">
+          <img class="pixel" src="/art/analytics.svg" alt="">
+          <h3>Analytics</h3>
+          <p>A Rust SDK queues events on disk and sends them in batches. They land in Iceberg tables you query with SQL. No Firebase, no GA4.</p>
+          <ul>
+            <li>Survives crashes and days offline</li>
+            <li>Sessions and first open, built in</li>
+            <li>Cloudflare Basin; ingest is free</li>
+          </ul>
+          <a class="more" href="https://github.com/johnkueh/flare/blob/main/TELEMETRY.md">Read TELEMETRY.md →</a>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section id="how">
+    <div class="wrap">
+      <div class="head">
+        <p class="eyebrow">How it works</p>
+        <h2>One core on the phone. Your Worker in the cloud.</h2>
+        <p>The phone never waits on the network. The Worker is yours: your account, your data, your bill.</p>
+      </div>
+      <div class="flow">
+        <div class="node"><b>Your app</b><span>SwiftUI, Compose or a web page, calling a few plain functions.</span>
+          <div class="tags"><span class="tag">Swift</span><span class="tag">Kotlin</span><span class="tag">TS</span></div></div>
+        <div class="arrow" aria-hidden="true"><i></i><i></i><i></i></div>
+        <div class="node"><b>Rust core</b><span>The local store, the merge rule and the event queue. Same code on every platform.</span>
+          <div class="tags"><span class="tag">SQLite</span><span class="tag">UniFFI</span></div></div>
+        <div class="arrow" aria-hidden="true"><i></i><i></i><i></i></div>
+        <div class="node"><b>Your Worker</b><span>One Durable Object per space, accounts in D1, photos in R2, events in Basin.</span>
+          <div class="tags"><span class="tag">Durable Objects</span><span class="tag">D1</span><span class="tag">R2</span><span class="tag">Basin</span></div></div>
+      </div>
+      <div class="mozilla">
+        <img class="pixel" src="/art/flame.svg" alt="">
+        <div><b>The same approach as Mozilla.</b> Firefox on iOS and Android shares its sync and telemetry code as Rust components, with Swift and Kotlin generated by UniFFI. Flare is built the same way: write the hard parts once, run them everywhere.</div>
+      </div>
+    </div>
+  </section>
+
+  <section id="add" class="band">
+    <div class="wrap">
+      <div class="head">
+        <p class="eyebrow">Add it</p>
+        <h2>A few lines on each side.</h2>
+        <p>Pin one tag of this repo on every platform and bump them together.</p>
+      </div>
+      <div class="tabs" role="tablist">
+        <button class="tab" role="tab" aria-selected="true" aria-controls="p-worker" id="t-worker" type="button">Worker</button>
+        <button class="tab" role="tab" aria-selected="false" aria-controls="p-ios" id="t-ios" type="button">iOS</button>
+        <button class="tab" role="tab" aria-selected="false" aria-controls="p-android" id="t-android" type="button">Android</button>
+        <button class="tab" role="tab" aria-selected="false" aria-controls="p-analytics" id="t-analytics" type="button">Analytics</button>
+      </div>
+      <div class="panel" role="tabpanel" id="p-worker" aria-labelledby="t-worker">
+<pre><span class="c"># Sync, and accounts if you want them</span>
+pnpm add <span class="s">"@sync/server@github:johnkueh/flare#0.2.0&amp;path:/server"</span>
+pnpm add <span class="s">"@flare/auth@github:johnkueh/flare#0.2.0&amp;path:/auth"</span>
+
+<span class="c">// src/index.ts</span>
+<span class="k">export</span> { SpaceObject } <span class="k">from</span> <span class="s">"@sync/server/space"</span>;</pre>
+        <p>Bind a SQLite Durable Object, D1 and R2, then route requests through <code>spaceHttp</code>. <a href="https://github.com/johnkueh/flare/blob/main/SYNC.md">Full setup →</a></p>
+      </div>
+      <div class="panel" role="tabpanel" id="p-ios" aria-labelledby="t-ios" hidden>
+<pre><span class="c">// Swift Package: https://github.com/johnkueh/flare
+// Link SyncKit and SyncClient</span>
+<span class="k">let</span> store = <span class="k">try</span> SyncStore.open(path: dbPath, schemaJson: schema)
+<span class="k">try</span> store.putDoc(collection: <span class="s">"groceries"</span>, doc: id,
+                  fieldsJson: <span class="s">#"{"name":"Milk"}"#</span>)</pre>
+        <p>Describe your data in one JSON file. Writes land locally first. <a href="https://github.com/johnkueh/flare/blob/main/SYNC.md">Full setup →</a></p>
+      </div>
+      <div class="panel" role="tabpanel" id="p-android" aria-labelledby="t-android" hidden>
+<pre><span class="c">// settings.gradle.kts</span>
+maven(<span class="s">"https://jitpack.io"</span>)
+maven(<span class="s">"https://pub-796846793f3e431ab3a92e0577c57dde.r2.dev/maven"</span>)
+
+<span class="c">// app/build.gradle.kts</span>
+implementation(<span class="s">"com.github.johnkueh:flare:0.2.0"</span>)</pre>
+        <p>Then the same calls as iOS, in Kotlin. <a href="https://github.com/johnkueh/flare/blob/main/SYNC.md">Full setup →</a></p>
+      </div>
+      <div class="panel" role="tabpanel" id="p-analytics" aria-labelledby="t-analytics" hidden>
+<pre><span class="c"># your-core/Cargo.toml</span>
+telemetry-sdk = { git = <span class="s">"https://github.com/johnkueh/flare"</span>, branch = <span class="s">"main"</span>, features = [<span class="s">"uniffi"</span>] }
+
+<span class="c">// Swift</span>
+<span class="k">let</span> client = <span class="k">try</span> TelemetryClient(config: config)
+client.track(name: <span class="s">"recipe_saved"</span>, params: [<span class="s">"source"</span>: .text(value: <span class="s">"share"</span>)])
+client.flush() <span class="c">// when the app goes to the background</span></pre>
+        <p>Link it into your app's Rust library and the bindings come out next to yours. <a href="https://github.com/johnkueh/flare/blob/main/TELEMETRY.md">Full setup →</a></p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <div class="head">
+        <p class="eyebrow">Cost</p>
+        <h2>Pennies, not a pricing page.</h2>
+      </div>
+      <div class="cost">
+        <div><b>No servers</b><span>Durable Objects sleep when nobody's syncing. Nothing to patch or scale.</span></div>
+        <div><b>One Workers plan</b><span>A small app fits inside Cloudflare's $5 a month Workers Paid plan.</span></div>
+        <div><b>Free ingest</b><span>Analytics events go into Basin for free. You pay only for the SQL you run.</span></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>Flare, by <a href="https://github.com/johnkueh">John Kueh</a>.</span>
+    <nav>
+      <a href="https://github.com/johnkueh/flare">GitHub</a>
+      <a href="https://github.com/johnkueh/flare/blob/main/PROTOCOL.md">Protocol</a>
+      <a href="https://github.com/johnkueh/flare/blob/main/SYNC.md">Docs</a>
+    </nav>
+  </div>
+</footer>
+
+<script>
+for (const b of document.querySelectorAll("[data-copy]")) {
+  b.addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(document.getElementById(b.dataset.copy).textContent);
+      b.textContent = "Copied";
+    } catch { b.textContent = "Select it"; }
+    setTimeout(() => { b.textContent = "Copy"; }, 1600);
+  });
+}
+const tabs = [...document.querySelectorAll('[role="tab"]')];
+for (const t of tabs) {
+  t.addEventListener("click", () => {
+    for (const o of tabs) {
+      const on = o === t;
+      o.setAttribute("aria-selected", String(on));
+      document.getElementById(o.getAttribute("aria-controls")).hidden = !on;
+    }
+  });
+}
+</script>
+</body>
+</html>
