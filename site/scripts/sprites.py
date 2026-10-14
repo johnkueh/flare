@@ -128,8 +128,9 @@ def icon_analytics():
 def favicon():
     return svg(10, 14, rects(FLAME_A, 0, 0), "Flare")
 
-OUT.mkdir(parents=True, exist_ok=True)
-for name, s in {"hero.svg": hero(), "sync.svg": icon_sync(), "auth.svg": icon_auth(),
-                "analytics.svg": icon_analytics(), "flame.svg": favicon()}.items():
-    (OUT / name).write_text(s)
-    print(name, len(s))
+if __name__ == "__main__":
+    OUT.mkdir(parents=True, exist_ok=True)
+    for name, s in {"hero.svg": hero(), "sync.svg": icon_sync(), "auth.svg": icon_auth(),
+                    "analytics.svg": icon_analytics(), "flame.svg": favicon()}.items():
+        (OUT / name).write_text(s)
+        print(name, len(s))
