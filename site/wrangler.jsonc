@@ -1,0 +1,8 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  // flare.jkyf.dev: the static page in public/, no Worker code.
+  "name": "flare-site",
+  "compatibility_date": "2026-10-01",
+  "assets": { "directory": "./public" },
+  "routes": [{ "pattern": "flare.jkyf.dev", "custom_domain": true }]
+}

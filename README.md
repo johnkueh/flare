@@ -6,7 +6,8 @@
 Worker: phones work offline, share data with each other, and catch up the
 moment they're back online.
 
-Sync is the first piece, then auth and product analytics ([TELEMETRY.md](TELEMETRY.md)).
+Sync, auth and product analytics, each a small package you add to a Worker.
+Site: [flare.jkyf.dev](https://flare.jkyf.dev).
 
 ## What you get
 

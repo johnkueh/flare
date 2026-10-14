@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Flare: your apps' backend, on Cloudflare</title>
+<meta name="description" content="Offline-first sync, auth and analytics for iOS, Android and web apps, from one Rust core and your own Cloudflare Worker.">
+<meta property="og:title" content="Flare: your apps' backend, on Cloudflare">
+<meta property="og:description" content="Offline-first sync, auth and analytics for iOS, Android and web, from one Rust core and your own Worker.">
+<meta property="og:image" content="https://flare.jkyf.dev/img/flare.png">
+<meta property="og:url" content="https://flare.jkyf.dev/">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#FDFCF7">
+<link rel="icon" type="image/svg+xml" href="/img/flame.svg">
+<link rel="icon" type="image/png" href="/favicon.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <a class="brand" href="/"><img class="px" src="/img/flame.svg" alt="">Flare</a>
+    <nav>
+      <a class="hide-sm" href="#pieces">What's in it</a>
+      <a class="hide-sm" href="#add">Add it</a>
+      <a href="https://github.com/johnkueh/flare">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <div class="hero">
+    <div class="wrap">
+      <div class="art" aria-hidden="true">
+        <img class="px" src="/img/hero.png" width="640" height="300" alt="">
+        <i class="spark"></i><i class="spark"></i><i class="spark"></i>
+      </div>
+      <h1>Your apps' backend, on Cloudflare.</h1>
+      <p class="lede">Like Firebase, but it's your own Worker. Phones work offline, share data with each other, and catch up the moment they're back online.</p>
+      <div class="actions">
+        <a class="btn" href="https://github.com/johnkueh/flare">
+          <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+          View on GitHub
+        </a>
+        <a class="btn ghost" href="#add">Add it to your app</a>
+      </div>
+      <div class="install">
+        <code><span class="dollar">$ </span><span id="cmd">pnpm add "@sync/server@github:johnkueh/flare#0.2.0&amp;path:/server"</span></code>
+        <button type="button" data-copy="cmd">Copy</button>
+      </div>
+    </div>
+  </div>
+
+  <section id="pieces" class="alt">
+    <div class="wrap">
+      <div class="head">
+        <div class="eyebrow">What's in it</div>
+        <h2>Three pieces, one Worker.</h2>
+        <p class="lede">Use one or all three. Each is a small package you add to a Worker you already run.</p>
+      </div>
+      <div class="grid">
+        <article class="card">
+          <div class="icon"><img class="px" src="/img/sync.svg" alt=""></div>
+          <h3>Sync</h3>
+          <p>Every phone keeps its own copy in SQLite and writes instantly. Phones share a space with an 8-letter invite code, and edits merge field by field, so nothing gets lost.</p>
+          <a class="more" href="https://github.com/johnkueh/flare/blob/main/SYNC.md">How sync works →</a>
+        </article>
+        <article class="card">
+          <div class="icon"><img class="px" src="/img/auth.svg" alt=""></div>
+          <h3>Auth</h3>
+          <p>Every install is signed in from its first launch and proves it's a real copy of your app with App Attest or Android key attestation. Add a real account later and nothing is lost.</p>
+          <a class="more" href="https://github.com/johnkueh/flare/blob/main/AUTH.md">How auth works →</a>
+        </article>
+        <article class="card">
+          <div class="icon"><img class="px" src="/img/analytics.svg" alt=""></div>
+          <h3>Analytics</h3>
+          <p>Events queue on the phone, survive a crash or a day offline, and land in Cloudflare Basin as a table you query with SQL. No Firebase, no GA4.</p>
+          <a class="more" href="https://github.com/johnkueh/flare/blob/main/TELEMETRY.md">How analytics works →</a>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <div class="head">
+        <div class="eyebrow">Merges that make sense</div>
+        <h2>Two people edit at once. Both edits stay.</h2>
+        <p class="lede">Your data is collections of JSON documents. Say what each field is, and Flare knows how to merge it.</p>
+      </div>
+      <div class="types">
+        <div class="type"><code>value</code><p>Names, checkboxes, amounts. The newest edit wins.</p></div>
+        <div class="type"><code>position</code><p>Order in a list. Moving an item writes one field.</p></div>
+        <div class="type"><code>parent</code><p>Folders and nesting. Loops are refused.</p></div>
+        <div class="type"><code>set</code><p>Tags and members. Adds and removes from every phone survive.</p></div>
+        <div class="type"><code>counter</code><p>Counts every phone adds to. No increment is lost.</p></div>
+        <div class="type"><code>blob</code><p>Photos and files, kept in R2 and checked by hash.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="alt">
+    <div class="wrap">
+      <div class="head">
+        <div class="eyebrow">How it's built</div>
+        <h2>One Rust core. Your own Worker.</h2>
+      </div>
+      <div class="flow">
+        <div class="node"><img class="px" src="/img/phone.svg" alt=""><strong>Your app</strong><span>Swift or Kotlin over the Rust core, with SQLite on the phone</span></div>
+        <div class="dots" aria-hidden="true"><i></i><i></i><i></i></div>
+        <div class="node"><img class="px" src="/img/flame.svg" alt=""><strong>Your Worker</strong><span>Sync, auth and events, on your Cloudflare account</span></div>
+        <div class="dots" aria-hidden="true"><i></i><i></i><i></i></div>
+        <div class="node"><img class="px" src="/img/storage.svg" alt=""><strong>Cloudflare</strong><span>Durable Objects, R2, D1 and Basin</span></div>
+      </div>
+      <div class="built">
+        <div>
+          <h3>Built like Firefox's sync</h3>
+          <p>It's the same approach Mozilla uses for Firefox on iOS and Android: the logic is written once in Rust, and UniFFI, Mozilla's binding generator, turns it into Swift and Kotlin. One set of merge rules, one set of tests, every platform.</p>
+        </div>
+        <div>
+          <h3>Cheap, and nothing to babysit</h3>
+          <p>One Durable Object per space, photos in R2, accounts in D1. Analytics at small-app volume costs nothing beyond Workers Paid. No servers, no database to run.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="add">
+    <div class="wrap">
+      <div class="head">
+        <div class="eyebrow">Add it</div>
+        <h2>Add it to the stack you already have.</h2>
+      </div>
+      <div class="tabs" role="tablist">
+        <button role="tab" aria-selected="true" aria-controls="t-worker" id="b-worker">Worker</button>
+        <button role="tab" aria-selected="false" aria-controls="t-ios" id="b-ios" tabindex="-1">iOS</button>
+        <button role="tab" aria-selected="false" aria-controls="t-android" id="b-android" tabindex="-1">Android</button>
+        <button role="tab" aria-selected="false" aria-controls="t-web" id="b-web" tabindex="-1">Web pages</button>
+      </div>
+      <div class="panel" role="tabpanel" id="t-worker" aria-labelledby="b-worker">
+<pre>pnpm add <span class="s">"@sync/server@github:johnkueh/flare#0.2.0&amp;path:/server"</span>
+pnpm add <span class="s">"@flare/auth@github:johnkueh/flare#0.2.0&amp;path:/auth"</span>   <span class="c"># accounts</span></pre>
+<pre><span class="c">// src/index.ts</span>
+<span class="k">export</span> { SpaceObject } <span class="k">from</span> <span class="s">"@sync/server/space"</span>;</pre>
+      </div>
+      <div class="panel" role="tabpanel" id="t-ios" aria-labelledby="b-ios" hidden>
+        <p>Add the package <code>https://github.com/johnkueh/flare</code> and link <code>SyncKit</code> and <code>SyncClient</code>. Then describe your data and open the store:</p>
+<pre><span class="k">let</span> store = <span class="k">try</span> SyncStore.open(path: dbPath, schemaJson: <span class="s">"""
+  {"groceries": {"name": "value", "done": "value", "position": "position"}}
+"""</span>)
+<span class="k">try</span> store.putDoc(collection: <span class="s">"groceries"</span>, doc: id, fieldsJson: <span class="s">#"{"name":"Milk","done":false}"#</span>)
+<span class="k">let</span> rows = <span class="k">try</span> store.list(collection: <span class="s">"groceries"</span>, orderBy: <span class="s">"position"</span>)</pre>
+      </div>
+      <div class="panel" role="tabpanel" id="t-android" aria-labelledby="b-android" hidden>
+<pre><span class="c">// settings.gradle.kts</span>
+maven(<span class="s">"https://jitpack.io"</span>)
+maven(<span class="s">"https://pub-796846793f3e431ab3a92e0577c57dde.r2.dev/maven"</span>)
+
+<span class="c">// app/build.gradle.kts</span>
+implementation(<span class="s">"com.github.johnkueh:flare:0.2.0"</span>)</pre>
+      </div>
+      <div class="panel" role="tabpanel" id="t-web" aria-labelledby="b-web" hidden>
+        <p>A web page doesn't run the Rust store. Its own Worker reads and writes through <code>SyncGateway</code> over a service binding, which never leaves your account.</p>
+<pre><span class="c">// the API Worker</span>
+<span class="k">export</span> { SpaceObject } <span class="k">from</span> <span class="s">"@sync/server/space"</span>;
+<span class="k">export</span> { SyncGateway } <span class="k">from</span> <span class="s">"@sync/server/gateway"</span>;
+
+<span class="c">// the web Worker's wrangler.jsonc</span>
+<span class="s">"services"</span>: [{ <span class="s">"binding"</span>: <span class="s">"SYNC"</span>, <span class="s">"service"</span>: <span class="s">"my-api"</span>, <span class="s">"entrypoint"</span>: <span class="s">"SyncGateway"</span> }]</pre>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>Flare, by <a href="https://github.com/johnkueh">John Kueh</a></span>
+    <nav>
+      <a href="https://github.com/johnkueh/flare/blob/main/SYNC.md">Sync</a>
+      <a href="https://github.com/johnkueh/flare/blob/main/AUTH.md">Auth</a>
+      <a href="https://github.com/johnkueh/flare/blob/main/TELEMETRY.md">Analytics</a>
+      <a href="https://github.com/johnkueh/flare/blob/main/PROTOCOL.md">Protocol</a>
+      <a href="https://github.com/johnkueh/flare">GitHub</a>
+    </nav>
+  </div>
+</footer>
+
+<script>
+  document.querySelectorAll("[data-copy]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const text = document.getElementById(button.dataset.copy).textContent;
+      try { await navigator.clipboard.writeText(text); button.textContent = "Copied"; }
+      catch { button.textContent = "Select it"; }
+      setTimeout(() => (button.textContent = "Copy"), 1600);
+    });
+  });
+
+  const tabs = [...document.querySelectorAll('[role="tab"]')];
+  function select(tab) {
+    for (const t of tabs) {
+      const on = t === tab;
+      t.setAttribute("aria-selected", on);
+      t.tabIndex = on ? 0 : -1;
+      document.getElementById(t.getAttribute("aria-controls")).hidden = !on;
+    }
+  }
+  tabs.forEach((tab, i) => {
+    tab.addEventListener("click", () => select(tab));
+    tab.addEventListener("keydown", (e) => {
+      const step = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
+      if (!step) return;
+      const next = tabs[(i + step + tabs.length) % tabs.length];
+      select(next);
+      next.focus();
+    });
+  });
+</script>
+</body>
+</html>
