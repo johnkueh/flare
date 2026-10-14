@@ -1,4 +1,4 @@
-<p align="center"><img src="docs/flare.png" alt="Flare" width="640"></p>
+<p align="center"><img src="docs/flare.svg" alt="Phones linked to a cloud with a flame" width="624"></p>
 
 # Flare
 
@@ -10,17 +10,36 @@ Sync, auth and product analytics, in one repo. Website: [flare.jkyf.dev](https:/
 
 ## What you get
 
-- **Offline first.** Every phone keeps a full local copy in SQLite and
-  writes instantly. Sync happens in the background.
-- **Shared spaces.** Phones join a space (a household, a team) with an
-  8‑letter invite code. No accounts, no passwords.
-- **Merges that make sense.** Two people edit at once and nothing gets lost:
-  newest edit wins per field, lists keep their order, sets and counters
-  merge.
-- **iOS, Android and the web.** One Rust core, with Swift and Kotlin on top.
-  Web pages read and write through your Worker.
-- **Cheap to run.** One Durable Object per space, photos in R2. Nothing to
-  babysit.
+<img align="right" src="docs/offline.svg" width="288" alt="A phone writes offline, then syncs when the network is back">
+
+**Offline first.** Every phone keeps a full local copy in SQLite and
+writes instantly. Sync happens in the background.
+<br clear="right">
+
+<img align="right" src="docs/spaces.svg" width="288" alt="Phones join a shared space with an invite code">
+
+**Shared spaces.** Phones join a space (a household, a team) with an
+8‑letter invite code.
+<br clear="right">
+
+<img align="right" src="docs/merges.svg" width="288" alt="Two edits at once, both kept after the merge">
+
+**Merges that make sense.** Two people edit at once and nothing gets lost:
+newest edit wins per field, lists keep their order, sets and counters
+merge.
+<br clear="right">
+
+<img align="right" src="docs/platforms.svg" width="288" alt="One Rust core on iPhone, Android and the web">
+
+**iOS, Android and the web.** One Rust core, with Swift and Kotlin on top.
+Web pages read and write through your Worker.
+<br clear="right">
+
+<img align="right" src="docs/cheap.svg" width="288" alt="A space's server sleeps until someone syncs">
+
+**Cheap to run.** One Durable Object per space, photos in R2. It sleeps
+until someone syncs. Nothing to babysit.
+<br clear="right">
 
 ## Add it
 
