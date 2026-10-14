@@ -1,0 +1,19 @@
+{
+  "name": "@flare/telemetry",
+  "private": true,
+  "type": "module",
+  "description": "Product analytics for apps on Flare: the /v1/events ingest handler that writes SDK batches to a Cloudflare Basin stream. Workers install it from GitHub (see TELEMETRY.md).",
+  "exports": {
+    ".": "./src/handler.ts"
+  },
+  "scripts": {
+    "test": "node --test --experimental-strip-types src/*.test.ts",
+    "typecheck": "tsc --noEmit",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20261014.1",
+    "typescript": "^5.9.3",
+    "wrangler": "4.151.0"
+  }
+}
