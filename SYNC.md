@@ -89,6 +89,26 @@ Deleting writes a tombstone; any later edit brings the document back.
 Long shared text (a document edited by two people at once) is the
 one thing this doesn't merge well; that is the planned Loro spike.
 
+### Why not Yjs
+
+Yjs and Automerge are built for text two people type into at once, and
+they keep a history of every character to do it. App data is mostly
+records: a grocery item, an issue, a shape. For records, the simpler rule
+above is what the big multiplayer apps use:
+
+- **Figma** merges each property with last-writer-wins, orders children
+  with fractional indexing, and keeps parent links from forming loops
+  ([How Figma's multiplayer technology works](https://www.figma.com/blog/how-figmas-multiplayer-technology-works/)).
+  Flare's `value`, `position` and `parent` types are those three ideas.
+- **Linear** syncs issues the same way: last-writer-wins per field, with
+  manual ordering that its CTO describes as CRDT-like, and a server as the
+  one authority ([Tuomas Artman](https://x.com/artman/status/1330496043650310151)).
+  It uses a CRDT only for issue descriptions.
+
+The one difference: Figma and Linear order writes by when the server sees
+them. Flare orders them by a hybrid logical clock stamped on the phone, so
+an edit made offline keeps its place when it syncs a day later.
+
 ## Using it from an app
 
 ```swift
