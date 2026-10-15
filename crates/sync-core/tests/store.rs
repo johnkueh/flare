@@ -85,6 +85,51 @@ fn counters_and_sets_keep_every_device_s_edits() {
 }
 
 #[test]
+fn whole_record_saves_only_write_what_changed() {
+    let mut server = Server::new(NOW, 1000);
+    let (mut a, mut b) = (phone(1), phone(2));
+    let record = |name: &str, done: bool| {
+        json!({"name": name, "done": done, "tags": ["dairy"], "position": "V", "photo": null})
+    };
+    a.put_doc("groceries", "milk", record("Milk", false).as_object().unwrap()).unwrap();
+    sync(&mut a, &mut server);
+    sync(&mut b, &mut server);
+    assert_eq!(a.pending_count().unwrap(), 0);
+
+    // Saving the same record again writes nothing, numbers by value.
+    a.put_doc("groceries", "milk", record("Milk", false).as_object().unwrap()).unwrap();
+    assert_eq!(a.pending_count().unwrap(), 0);
+    a.put_doc("groceries", "n", json!({"name": "N", "done": 3}).as_object().unwrap()).unwrap();
+    sync(&mut a, &mut server);
+    a.put_doc("groceries", "n", json!({"done": 3.0}).as_object().unwrap()).unwrap();
+    assert_eq!(a.pending_count().unwrap(), 0);
+
+    // Each phone saves its whole record with one field changed; b's save is
+    // later. Both edits survive.
+    a.set_wall_clock(Some(NOW + 1000));
+    b.set_wall_clock(Some(NOW + 2000));
+    a.put_doc("groceries", "milk", record("Oat milk", false).as_object().unwrap()).unwrap();
+    b.put_doc("groceries", "milk", record("Milk", true).as_object().unwrap()).unwrap();
+    assert_eq!((a.pending_count().unwrap(), b.pending_count().unwrap()), (1, 1));
+    for _ in 0..2 {
+        sync(&mut a, &mut server);
+        sync(&mut b, &mut server);
+    }
+    for s in [&a, &b] {
+        let doc = s.get_doc("groceries", "milk").unwrap().unwrap();
+        assert_eq!((doc["name"].clone(), doc["done"].clone()), (json!("Oat milk"), json!(true)));
+    }
+
+    // A null clears a field that has a value.
+    a.put_doc("groceries", "milk", json!({"tags": null}).as_object().unwrap()).unwrap();
+    assert_eq!(a.get_doc("groceries", "milk").unwrap().unwrap()["tags"], json!([]));
+    // A deleted record is written in full, which brings it back.
+    a.delete_doc("groceries", "milk").unwrap();
+    a.put_doc("groceries", "milk", record("Oat milk", true).as_object().unwrap()).unwrap();
+    assert_eq!(a.get_doc("groceries", "milk").unwrap().unwrap()["name"], json!("Oat milk"));
+}
+
+#[test]
 fn delete_then_later_edit_brings_it_back() {
     let mut server = Server::new(NOW, 1000);
     let (mut a, mut b) = (phone(1), phone(2));
