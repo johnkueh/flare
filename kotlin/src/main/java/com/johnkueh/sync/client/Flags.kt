@@ -83,7 +83,7 @@ class Flags(
     )
 
     /** The generated `Flags.start(context, server)` hangs off this. */
-    companion object
+    companion object {}
 
     private val app = context.applicationContext
     private val store = FlagStore.open(schemaJson, File(app.filesDir, "flare/flags.json").path, user)

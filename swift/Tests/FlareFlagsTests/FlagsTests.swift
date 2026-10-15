@@ -54,6 +54,14 @@ final class StubWorker: URLProtocol, @unchecked Sendable {
         return Flags.Options(refreshInterval: nil, context: ["build": "test"], directory: directory, session: URLSession(configuration: config))
     }
 
+    /// The bodies of requests for `key`; flags from an earlier test may
+    /// still be finishing their launch refresh.
+    func bodies(for key: String) -> [[String: [String: String]]] {
+        StubWorker.requests.compactMap { $0.httpBody }
+            .map { try! JSONSerialization.jsonObject(with: $0) as! [String: [String: String]] }
+            .filter { $0["context"]?["targetingKey"] == key }
+    }
+
     init() {
         StubWorker.values = [:]
         StubWorker.requests = []
@@ -87,10 +95,8 @@ final class StubWorker: URLProtocol, @unchecked Sendable {
         #expect(flags.activate() == ["new-checkout"])
         #expect(flags.newCheckout == true)
 
-        let sent = StubWorker.requests.last!
-        #expect(sent.url?.path == "/ofrep/v1/evaluate/flags")
-        let body = try! JSONSerialization.jsonObject(with: sent.httpBody!) as! [String: [String: String]]
-        #expect(body["context"]?["targetingKey"] == flags.identity)
+        #expect(StubWorker.requests.last?.url?.path == "/ofrep/v1/evaluate/flags")
+        let body = bodies(for: flags.identity).last ?? [:]
         #expect(body["context"]?["build"] == "test")
         #expect(body["context"]?["platform"] != nil)
     }
@@ -120,7 +126,6 @@ final class StubWorker: URLProtocol, @unchecked Sendable {
         #expect(await it.next() == ["upload-limit"])
         await flags.setUser("u1")
         #expect(flags.identity == "u1")
-        let body = try! JSONSerialization.jsonObject(with: StubWorker.requests.last!.httpBody!) as! [String: [String: String]]
-        #expect(body["context"]?["targetingKey"] == "u1")
+        #expect(!bodies(for: "u1").isEmpty)
     }
 }
