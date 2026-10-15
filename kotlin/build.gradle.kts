@@ -24,7 +24,7 @@ plugins {
     `maven-publish`
 }
 
-val ffiVersion = "6a0bbcb44ec8"
+val ffiVersion = "6995efe202e9"
 
 val localRust = layout.buildDirectory.dir("rustJniLibs").get().asFile.isDirectory
 

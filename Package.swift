@@ -14,8 +14,8 @@
 import Foundation
 import PackageDescription
 
-let ffiURL = "https://pub-796846793f3e431ab3a92e0577c57dde.r2.dev/SyncFFI-6a0bbcb44ec8.xcframework.zip"
-let ffiChecksum = "8d2b7ed772ee6ce4fae24d231d49ae32201b5b7ac10aa55205b13d023e2cf10a"
+let ffiURL = "https://pub-796846793f3e431ab3a92e0577c57dde.r2.dev/SyncFFI-6995efe202e9.xcframework.zip"
+let ffiChecksum = "ff9e37604e4b6514b9722f4bbe69cd47ef78c9c9d700f2e45d3ef2d3df79e38e"
 
 let localFFI = FileManager.default.fileExists(
     atPath: Context.packageDirectory + "/swift/SyncFFI.xcframework"
