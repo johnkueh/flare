@@ -12,15 +12,19 @@ struct ListView: View {
 
     var body: some View {
         Form {
+            FlagNotes()
+
             if let model {
+                let full = model.items.count >= app.flags.maxItems
                 Section {
                     HStack {
-                        TextField("Add an item", text: $newItem)
+                        TextField(full ? "This list is full (\(app.flags.maxItems) items)" : "Add an item", text: $newItem)
                             .accessibilityIdentifier("new-item")
                             .onSubmit(add)
                         Button("Add", action: add)
-                            .disabled(newItem.trimmingCharacters(in: .whitespaces).isEmpty)
+                            .disabled(newItem.trimmingCharacters(in: .whitespaces).isEmpty || full)
                     }
+                    .disabled(app.flags.readOnly || full)
                     ForEach(model.items) { item in
                         Button {
                             model.toggle(item)
@@ -37,12 +41,14 @@ struct ListView: View {
                             .contentShape(Rectangle())
                         }
                         .accessibilityLabel("\(item.name ?? ""), \(item.done == true ? "done" : "not done")")
+                        .disabled(app.flags.readOnly)
                     }
                 } footer: {
                     if let error = model.error {
                         Text(error).foregroundStyle(.red)
                     } else {
-                        Text(model.isLive ? "Live" : "Connecting…")
+                        let left = model.items.filter { $0.done != true }.count
+                        Text((model.isLive ? "Live" : "Connecting…") + (app.flags.showCounts ? " · \(left) left" : ""))
                     }
                 }
 
@@ -89,7 +95,7 @@ struct ListView: View {
 
     private func add() {
         let name = newItem.trimmingCharacters(in: .whitespaces)
-        guard !name.isEmpty else { return }
+        guard !name.isEmpty, !app.flags.readOnly, (model?.items.count ?? 0) < app.flags.maxItems else { return }
         model?.add(name)
         newItem = ""
     }

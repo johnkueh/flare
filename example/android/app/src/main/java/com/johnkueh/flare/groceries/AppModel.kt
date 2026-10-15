@@ -32,6 +32,7 @@ class AppModel(private val context: Context) {
     private val isEmulator = Build.HARDWARE == "ranchu" || Build.HARDWARE == "goldfish"
     val auth = FlareAuth(context, "${BuildConfig.SERVER}/v1/auth", allowUnattested = isEmulator, http = http)
     val client = SpaceClient("${BuildConfig.SERVER}/v1", tokens = auth, http = http, deviceName = deviceName)
+    val flags = (context.applicationContext as GroceriesApp).flags
 
     var lists by mutableStateOf(savedLists())
         private set
@@ -67,6 +68,7 @@ class AppModel(private val context: Context) {
             }
             save(me.spaces.map { SavedList(it.spaceId, it.name) })
             error = null
+            flags.setUser(me.user)
         } catch (e: Exception) {
             error = "Can't reach the server. ${e.message}"
         }

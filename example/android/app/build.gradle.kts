@@ -34,6 +34,11 @@ android {
     }
 }
 
+// Typed flags from example/flags.json, generated on every build. An app
+// outside this repo applies it from GitHub:
+// apply(from = "https://raw.githubusercontent.com/johnkueh/flare/<tag>/kotlin/flare-flags.gradle")
+apply(from = "../../../kotlin/flare-flags.gradle")
+
 kotlin {
     compilerOptions { jvmTarget.set(JvmTarget.JVM_17) }
 }

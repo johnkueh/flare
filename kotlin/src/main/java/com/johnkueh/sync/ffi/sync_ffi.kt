@@ -683,6 +683,32 @@ internal object IntegrityCheckingUniffiLib {
     ): Int
     external fun uniffi_sync_ffi_checksum_func_position_between(
     ): Int
+    external fun uniffi_sync_ffi_checksum_method_flagstore_activate(
+    ): Int
+    external fun uniffi_sync_ffi_checksum_method_flagstore_apply_response(
+    ): Int
+    external fun uniffi_sync_ffi_checksum_method_flagstore_bool_value(
+    ): Int
+    external fun uniffi_sync_ffi_checksum_method_flagstore_etag(
+    ): Int
+    external fun uniffi_sync_ffi_checksum_method_flagstore_fetched_at(
+    ): Int
+    external fun uniffi_sync_ffi_checksum_method_flagstore_identity(
+    ): Int
+    external fun uniffi_sync_ffi_checksum_method_flagstore_int_value(
+    ): Int
+    external fun uniffi_sync_ffi_checksum_method_flagstore_number_value(
+    ): Int
+    external fun uniffi_sync_ffi_checksum_method_flagstore_request_body(
+    ): Int
+    external fun uniffi_sync_ffi_checksum_method_flagstore_set_user(
+    ): Int
+    external fun uniffi_sync_ffi_checksum_method_flagstore_snapshot_json(
+    ): Int
+    external fun uniffi_sync_ffi_checksum_method_flagstore_string_value(
+    ): Int
+    external fun uniffi_sync_ffi_checksum_method_flagstore_value_json(
+    ): Int
     external fun uniffi_sync_ffi_checksum_method_syncstore_ack_push(
     ): Int
     external fun uniffi_sync_ffi_checksum_method_syncstore_ancestors(
@@ -737,6 +763,8 @@ internal object IntegrityCheckingUniffiLib {
     ): Int
     external fun uniffi_sync_ffi_checksum_method_syncstore_take_push(
     ): Int
+    external fun uniffi_sync_ffi_checksum_constructor_flagstore_open(
+    ): Int
     external fun uniffi_sync_ffi_checksum_constructor_syncstore_open(
     ): Int
     external fun ffi_sync_ffi_uniffi_contract_version(
@@ -759,6 +787,38 @@ internal object UniffiLib {
     }
 
     internal fun ensureInitialized() = Unit
+    external fun uniffi_sync_ffi_fn_clone_flagstore(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    ): Long
+    external fun uniffi_sync_ffi_fn_free_flagstore(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    ): Unit
+    external fun uniffi_sync_ffi_fn_constructor_flagstore_open(`schemaJson`: RustBuffer.ByValue,`cachePath`: RustBuffer.ByValue,`user`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): Long
+    external fun uniffi_sync_ffi_fn_method_flagstore_activate(`ptr`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    external fun uniffi_sync_ffi_fn_method_flagstore_apply_response(`ptr`: Long,`status`: Short,`etag`: RustBuffer.ByValue,`body`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    external fun uniffi_sync_ffi_fn_method_flagstore_bool_value(`ptr`: Long,`key`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): Byte
+    external fun uniffi_sync_ffi_fn_method_flagstore_etag(`ptr`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    external fun uniffi_sync_ffi_fn_method_flagstore_fetched_at(`ptr`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    external fun uniffi_sync_ffi_fn_method_flagstore_identity(`ptr`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    external fun uniffi_sync_ffi_fn_method_flagstore_int_value(`ptr`: Long,`key`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): Long
+    external fun uniffi_sync_ffi_fn_method_flagstore_number_value(`ptr`: Long,`key`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): Double
+    external fun uniffi_sync_ffi_fn_method_flagstore_request_body(`ptr`: Long,`contextJson`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    external fun uniffi_sync_ffi_fn_method_flagstore_set_user(`ptr`: Long,`user`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    external fun uniffi_sync_ffi_fn_method_flagstore_snapshot_json(`ptr`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    external fun uniffi_sync_ffi_fn_method_flagstore_string_value(`ptr`: Long,`key`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    external fun uniffi_sync_ffi_fn_method_flagstore_value_json(`ptr`: Long,`key`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
     external fun uniffi_sync_ffi_fn_clone_syncstore(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): Long
     external fun uniffi_sync_ffi_fn_free_syncstore(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
@@ -958,6 +1018,45 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
     if ((lib.uniffi_sync_ffi_checksum_func_position_between() and 0xFFFF) != 2982) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
+    if ((lib.uniffi_sync_ffi_checksum_method_flagstore_activate() and 0xFFFF) != 44218) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if ((lib.uniffi_sync_ffi_checksum_method_flagstore_apply_response() and 0xFFFF) != 36032) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if ((lib.uniffi_sync_ffi_checksum_method_flagstore_bool_value() and 0xFFFF) != 50982) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if ((lib.uniffi_sync_ffi_checksum_method_flagstore_etag() and 0xFFFF) != 42297) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if ((lib.uniffi_sync_ffi_checksum_method_flagstore_fetched_at() and 0xFFFF) != 45529) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if ((lib.uniffi_sync_ffi_checksum_method_flagstore_identity() and 0xFFFF) != 23362) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if ((lib.uniffi_sync_ffi_checksum_method_flagstore_int_value() and 0xFFFF) != 5934) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if ((lib.uniffi_sync_ffi_checksum_method_flagstore_number_value() and 0xFFFF) != 35314) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if ((lib.uniffi_sync_ffi_checksum_method_flagstore_request_body() and 0xFFFF) != 52003) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if ((lib.uniffi_sync_ffi_checksum_method_flagstore_set_user() and 0xFFFF) != 10833) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if ((lib.uniffi_sync_ffi_checksum_method_flagstore_snapshot_json() and 0xFFFF) != 357) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if ((lib.uniffi_sync_ffi_checksum_method_flagstore_string_value() and 0xFFFF) != 47428) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if ((lib.uniffi_sync_ffi_checksum_method_flagstore_value_json() and 0xFFFF) != 55340) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
     if ((lib.uniffi_sync_ffi_checksum_method_syncstore_ack_push() and 0xFFFF) != 21313) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
@@ -1037,6 +1136,9 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if ((lib.uniffi_sync_ffi_checksum_method_syncstore_take_push() and 0xFFFF) != 33446) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if ((lib.uniffi_sync_ffi_checksum_constructor_flagstore_open() and 0xFFFF) != 37825) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if ((lib.uniffi_sync_ffi_checksum_constructor_syncstore_open() and 0xFFFF) != 40163) {
@@ -1202,6 +1304,33 @@ private class JavaLangRefCleanable(
 /**
  * @suppress
  */
+public object FfiConverterUShort: FfiConverter<UShort, Short> {
+    override fun lift(value: Short): UShort {
+        return value.toUShort()
+    }
+
+    fun lift(value: Int): UShort {
+        return value.toUShort()
+    }
+
+    override fun read(buf: ByteBuffer): UShort {
+        return lift(buf.getShort())
+    }
+
+    override fun lower(value: UShort): Short {
+        return value.toShort()
+    }
+
+    override fun allocationSize(value: UShort) = 2UL
+
+    override fun write(value: UShort, buf: ByteBuffer) {
+        buf.putShort(value.toShort())
+    }
+}
+
+/**
+ * @suppress
+ */
 public object FfiConverterULong: FfiConverter<ULong, Long> {
     override fun lift(value: Long): ULong {
         return value.toULong()
@@ -1219,6 +1348,29 @@ public object FfiConverterULong: FfiConverter<ULong, Long> {
 
     override fun write(value: ULong, buf: ByteBuffer) {
         buf.putLong(value.toLong())
+    }
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterLong: FfiConverter<Long, Long> {
+    override fun lift(value: Long): Long {
+        return value
+    }
+
+    override fun read(buf: ByteBuffer): Long {
+        return buf.getLong()
+    }
+
+    override fun lower(value: Long): Long {
+        return value
+    }
+
+    override fun allocationSize(value: Long) = 8UL
+
+    override fun write(value: Long, buf: ByteBuffer) {
+        buf.putLong(value)
     }
 }
 
@@ -1322,6 +1474,527 @@ public object FfiConverterString: FfiConverter<String, RustBuffer.ByValue> {
         val byteBuf = toUtf8(value)
         buf.putInt(byteBuf.limit())
         buf.put(byteBuf)
+    }
+}
+
+
+// This template implements a class for working with a Rust struct via a handle
+// to the live Rust struct on the other side of the FFI.
+//
+// There's some subtlety here, because we have to be careful not to operate on a Rust
+// struct after it has been dropped, and because we must expose a public API for freeing
+// theq Kotlin wrapper object in lieu of reliable finalizers. The core requirements are:
+//
+//   * Each instance holds an opaque handle to the underlying Rust struct.
+//     Method calls need to read this handle from the object's state and pass it in to
+//     the Rust FFI.
+//
+//   * When an instance is no longer needed, its handle should be passed to a
+//     special destructor function provided by the Rust FFI, which will drop the
+//     underlying Rust struct.
+//
+//   * Given an instance, calling code is expected to call the special
+//     `destroy` method in order to free it after use, either by calling it explicitly
+//     or by using a higher-level helper like the `use` method. Failing to do so risks
+//     leaking the underlying Rust struct.
+//
+//   * We can't assume that calling code will do the right thing, and must be prepared
+//     to handle Kotlin method calls executing concurrently with or even after a call to
+//     `destroy`, and to handle multiple (possibly concurrent!) calls to `destroy`.
+//
+//   * We must never allow Rust code to operate on the underlying Rust struct after
+//     the destructor has been called, and must never call the destructor more than once.
+//     Doing so may trigger memory unsafety.
+//
+//   * To mitigate many of the risks of leaking memory and use-after-free unsafety, a `Cleaner`
+//     is implemented to call the destructor when the Kotlin object becomes unreachable.
+//     This is done in a background thread. This is not a panacea, and client code should be aware that
+//      1. the thread may starve if some there are objects that have poorly performing
+//     `drop` methods or do significant work in their `drop` methods.
+//      2. the thread is shared across the whole library. This can be tuned by using `android_cleaner = true`,
+//         or `android = true` in the [`kotlin` section of the `uniffi.toml` file](https://mozilla.github.io/uniffi-rs/kotlin/configuration.html).
+//
+// If we try to implement this with mutual exclusion on access to the handle, there is the
+// possibility of a race between a method call and a concurrent call to `destroy`:
+//
+//    * Thread A starts a method call, reads the value of the handle, but is interrupted
+//      before it can pass the handle over the FFI to Rust.
+//    * Thread B calls `destroy` and frees the underlying Rust struct.
+//    * Thread A resumes, passing the already-read handle value to Rust and triggering
+//      a use-after-free.
+//
+// One possible solution would be to use a `ReadWriteLock`, with each method call taking
+// a read lock (and thus allowed to run concurrently) and the special `destroy` method
+// taking a write lock (and thus blocking on live method calls). However, we aim not to
+// generate methods with any hidden blocking semantics, and a `destroy` method that might
+// block if called incorrectly seems to meet that bar.
+//
+// So, we achieve our goals by giving each instance an associated `AtomicLong` counter to track
+// the number of in-flight method calls, and an `AtomicBoolean` flag to indicate whether `destroy`
+// has been called. These are updated according to the following rules:
+//
+//    * The initial value of the counter is 1, indicating a live object with no in-flight calls.
+//      The initial value for the flag is false.
+//
+//    * At the start of each method call, we atomically check the counter.
+//      If it is 0 then the underlying Rust struct has already been destroyed and the call is aborted.
+//      If it is nonzero them we atomically increment it by 1 and proceed with the method call.
+//
+//    * At the end of each method call, we atomically decrement and check the counter.
+//      If it has reached zero then we destroy the underlying Rust struct.
+//
+//    * When `destroy` is called, we atomically flip the flag from false to true.
+//      If the flag was already true we silently fail.
+//      Otherwise we atomically decrement and check the counter.
+//      If it has reached zero then we destroy the underlying Rust struct.
+//
+// Astute readers may observe that this all sounds very similar to the way that Rust's `Arc<T>` works,
+// and indeed it is, with the addition of a flag to guard against multiple calls to `destroy`.
+//
+// The overall effect is that the underlying Rust struct is destroyed only when `destroy` has been
+// called *and* all in-flight method calls have completed, avoiding violating any of the expectations
+// of the underlying Rust code.
+//
+// This makes a cleaner a better alternative to _not_ calling `destroy()` as
+// and when the object is finished with, but the abstraction is not perfect: if the Rust object's `drop`
+// method is slow, and/or there are many objects to cleanup, and it's on a low end Android device, then the cleaner
+// thread may be starved, and the app will leak memory.
+//
+// In this case, `destroy`ing manually may be a better solution.
+//
+// The cleaner can live side by side with the manual calling of `destroy`. In the order of responsiveness, uniffi objects
+// with Rust peers are reclaimed:
+//
+// 1. By calling the `destroy` method of the object, which calls `rustObject.free()`. If that doesn't happen:
+// 2. When the object becomes unreachable, AND the Cleaner thread gets to call `rustObject.free()`. If the thread is starved then:
+// 3. The memory is reclaimed when the process terminates.
+//
+// [1] https://stackoverflow.com/questions/24376768/can-java-finalize-an-object-when-it-is-still-in-scope/24380219
+//
+
+
+public interface FlagStoreInterface {
+    
+    /**
+     * Lets flags that were read take their latest values (call it when
+     * the app comes to the foreground). Returns the flags that changed.
+     */
+    fun `activate`(): List<kotlin.String>
+    
+    /**
+     * Applies the server's answer; returns the flags that changed.
+     */
+    fun `applyResponse`(`status`: kotlin.UShort, `etag`: kotlin.String?, `body`: kotlin.String): List<kotlin.String>
+    
+    fun `boolValue`(`key`: kotlin.String): kotlin.Boolean
+    
+    /**
+     * The `If-None-Match` header to send, if any.
+     */
+    fun `etag`(): kotlin.String?
+    
+    /**
+     * When the server last answered (ms since 1970), or nil.
+     */
+    fun `fetchedAt`(): kotlin.ULong?
+    
+    fun `identity`(): kotlin.String
+    
+    fun `intValue`(`key`: kotlin.String): kotlin.Long
+    
+    fun `numberValue`(`key`: kotlin.String): kotlin.Double
+    
+    /**
+     * The body for `POST /ofrep/v1/evaluate/flags`. `context_json` is a
+     * JSON object of extra attributes (platform, appVersion…).
+     */
+    fun `requestBody`(`contextJson`: kotlin.String): kotlin.String
+    
+    /**
+     * Evaluates for a signed-in user (nil: this install). Values go back
+     * to their defaults until the next response; returns what changed.
+     */
+    fun `setUser`(`user`: kotlin.String?): List<kotlin.String>
+    
+    /**
+     * Every flag's value as a JSON object, without holding any.
+     */
+    fun `snapshotJson`(): kotlin.String
+    
+    fun `stringValue`(`key`: kotlin.String): kotlin.String
+    
+    /**
+     * A flag's value as JSON, or nil for a key not in flags.json. Reading
+     * a flag holds its value until `activate`.
+     */
+    fun `valueJson`(`key`: kotlin.String): kotlin.String?
+    
+    companion object
+}
+
+open class FlagStore: Disposable, AutoCloseable, FlagStoreInterface
+{
+
+    @Suppress("UNUSED_PARAMETER")
+    /**
+     * @suppress
+     */
+    constructor(withHandle: UniffiWithHandle, handle: Long) {
+        this.handle = handle
+        this.cleanable = UniffiLib.CLEANER.register(this, UniffiCleanAction(handle))
+    }
+
+    /**
+     * @suppress
+     *
+     * This constructor can be used to instantiate a fake object. Only used for tests. Any
+     * attempt to actually use an object constructed this way will fail as there is no
+     * connected Rust object.
+     */
+    @Suppress("UNUSED_PARAMETER")
+    constructor(noHandle: NoHandle) {
+        this.handle = 0
+        this.cleanable = null
+    }
+
+    protected val handle: Long
+    protected val cleanable: UniffiCleaner.Cleanable?
+
+    private val wasDestroyed = AtomicBoolean(false)
+    private val callCounter = AtomicLong(1)
+
+    /**
+     * Whether the current object has been destroyed and its reference is gone in the Rust side.
+     */
+    val uniffiIsDestroyed: Boolean get() = wasDestroyed.get()
+
+    override fun destroy() {
+        // Only allow a single call to this method.
+        // TODO: maybe we should log a warning if called more than once?
+        if (this.wasDestroyed.compareAndSet(false, true)) {
+            // This decrement always matches the initial count of 1 given at creation time.
+            if (this.callCounter.decrementAndGet() == 0L) {
+                cleanable?.clean()
+            }
+        }
+    }
+
+    @Synchronized
+    override fun close() {
+        this.destroy()
+    }
+
+    internal inline fun <R> callWithHandle(block: (handle: Long) -> R): R {
+        // Check and increment the call counter, to keep the object alive.
+        // This needs a compare-and-set retry loop in case of concurrent updates.
+        do {
+            val c = this.callCounter.get()
+            if (c == 0L) {
+                throw IllegalStateException("${this.javaClass.simpleName} object has already been destroyed")
+            }
+            if (c == Long.MAX_VALUE) {
+                throw IllegalStateException("${this.javaClass.simpleName} call counter would overflow")
+            }
+        } while (! this.callCounter.compareAndSet(c, c + 1L))
+        // Now we can safely do the method call without the handle being freed concurrently.
+        try {
+            return block(this.uniffiCloneHandle())
+        } finally {
+            // This decrement always matches the increment we performed above.
+            if (this.callCounter.decrementAndGet() == 0L) {
+                cleanable?.clean()
+            }
+        }
+    }
+
+    // Use a static inner class instead of a closure so as not to accidentally
+    // capture `this` as part of the cleanable's action.
+    private class UniffiCleanAction(private val handle: Long) : Runnable {
+        override fun run() {
+            if (handle == 0.toLong()) {
+                // Fake object created with `NoHandle`, don't try to free.
+                return;
+            }
+            uniffiRustCall { status ->
+                UniffiLib.uniffi_sync_ffi_fn_free_flagstore(handle, status)
+            }
+        }
+    }
+
+    /**
+     * @suppress
+     */
+    fun uniffiCloneHandle(): Long {
+        if (handle == 0.toLong()) {
+            throw InternalException("uniffiCloneHandle() called on NoHandle object");
+        }
+        return uniffiRustCall() { status ->
+            UniffiLib.uniffi_sync_ffi_fn_clone_flagstore(handle, status)
+        }
+    }
+
+    
+    /**
+     * Lets flags that were read take their latest values (call it when
+     * the app comes to the foreground). Returns the flags that changed.
+     */override fun `activate`(): List<kotlin.String> {
+            return FfiConverterSequenceString.lift(
+    callWithHandle {
+    uniffiRustCall() { _status ->
+    UniffiLib.uniffi_sync_ffi_fn_method_flagstore_activate(
+        it,
+        _status)
+}
+    }
+    )
+    }
+    
+
+    
+    /**
+     * Applies the server's answer; returns the flags that changed.
+     */
+    @Throws(SyncException::class)override fun `applyResponse`(`status`: kotlin.UShort, `etag`: kotlin.String?, `body`: kotlin.String): List<kotlin.String> {
+            return FfiConverterSequenceString.lift(
+    callWithHandle {
+    uniffiRustCallWithError(SyncException) { _status ->
+    UniffiLib.uniffi_sync_ffi_fn_method_flagstore_apply_response(
+        it,
+        
+        FfiConverterUShort.lower(`status`),
+        FfiConverterOptionalString.lower(`etag`),
+        FfiConverterString.lower(`body`),_status)
+}
+    }
+    )
+    }
+    
+
+    override fun `boolValue`(`key`: kotlin.String): kotlin.Boolean {
+            return FfiConverterBoolean.lift(
+    callWithHandle {
+    uniffiRustCall() { _status ->
+    UniffiLib.uniffi_sync_ffi_fn_method_flagstore_bool_value(
+        it,
+        
+        FfiConverterString.lower(`key`),_status)
+}
+    }
+    )
+    }
+    
+
+    
+    /**
+     * The `If-None-Match` header to send, if any.
+     */override fun `etag`(): kotlin.String? {
+            return FfiConverterOptionalString.lift(
+    callWithHandle {
+    uniffiRustCall() { _status ->
+    UniffiLib.uniffi_sync_ffi_fn_method_flagstore_etag(
+        it,
+        _status)
+}
+    }
+    )
+    }
+    
+
+    
+    /**
+     * When the server last answered (ms since 1970), or nil.
+     */override fun `fetchedAt`(): kotlin.ULong? {
+            return FfiConverterOptionalULong.lift(
+    callWithHandle {
+    uniffiRustCall() { _status ->
+    UniffiLib.uniffi_sync_ffi_fn_method_flagstore_fetched_at(
+        it,
+        _status)
+}
+    }
+    )
+    }
+    
+
+    override fun `identity`(): kotlin.String {
+            return FfiConverterString.lift(
+    callWithHandle {
+    uniffiRustCall() { _status ->
+    UniffiLib.uniffi_sync_ffi_fn_method_flagstore_identity(
+        it,
+        _status)
+}
+    }
+    )
+    }
+    
+
+    override fun `intValue`(`key`: kotlin.String): kotlin.Long {
+            return FfiConverterLong.lift(
+    callWithHandle {
+    uniffiRustCall() { _status ->
+    UniffiLib.uniffi_sync_ffi_fn_method_flagstore_int_value(
+        it,
+        
+        FfiConverterString.lower(`key`),_status)
+}
+    }
+    )
+    }
+    
+
+    override fun `numberValue`(`key`: kotlin.String): kotlin.Double {
+            return FfiConverterDouble.lift(
+    callWithHandle {
+    uniffiRustCall() { _status ->
+    UniffiLib.uniffi_sync_ffi_fn_method_flagstore_number_value(
+        it,
+        
+        FfiConverterString.lower(`key`),_status)
+}
+    }
+    )
+    }
+    
+
+    
+    /**
+     * The body for `POST /ofrep/v1/evaluate/flags`. `context_json` is a
+     * JSON object of extra attributes (platform, appVersion…).
+     */
+    @Throws(SyncException::class)override fun `requestBody`(`contextJson`: kotlin.String): kotlin.String {
+            return FfiConverterString.lift(
+    callWithHandle {
+    uniffiRustCallWithError(SyncException) { _status ->
+    UniffiLib.uniffi_sync_ffi_fn_method_flagstore_request_body(
+        it,
+        
+        FfiConverterString.lower(`contextJson`),_status)
+}
+    }
+    )
+    }
+    
+
+    
+    /**
+     * Evaluates for a signed-in user (nil: this install). Values go back
+     * to their defaults until the next response; returns what changed.
+     */override fun `setUser`(`user`: kotlin.String?): List<kotlin.String> {
+            return FfiConverterSequenceString.lift(
+    callWithHandle {
+    uniffiRustCall() { _status ->
+    UniffiLib.uniffi_sync_ffi_fn_method_flagstore_set_user(
+        it,
+        
+        FfiConverterOptionalString.lower(`user`),_status)
+}
+    }
+    )
+    }
+    
+
+    
+    /**
+     * Every flag's value as a JSON object, without holding any.
+     */override fun `snapshotJson`(): kotlin.String {
+            return FfiConverterString.lift(
+    callWithHandle {
+    uniffiRustCall() { _status ->
+    UniffiLib.uniffi_sync_ffi_fn_method_flagstore_snapshot_json(
+        it,
+        _status)
+}
+    }
+    )
+    }
+    
+
+    override fun `stringValue`(`key`: kotlin.String): kotlin.String {
+            return FfiConverterString.lift(
+    callWithHandle {
+    uniffiRustCall() { _status ->
+    UniffiLib.uniffi_sync_ffi_fn_method_flagstore_string_value(
+        it,
+        
+        FfiConverterString.lower(`key`),_status)
+}
+    }
+    )
+    }
+    
+
+    
+    /**
+     * A flag's value as JSON, or nil for a key not in flags.json. Reading
+     * a flag holds its value until `activate`.
+     */override fun `valueJson`(`key`: kotlin.String): kotlin.String? {
+            return FfiConverterOptionalString.lift(
+    callWithHandle {
+    uniffiRustCall() { _status ->
+    UniffiLib.uniffi_sync_ffi_fn_method_flagstore_value_json(
+        it,
+        
+        FfiConverterString.lower(`key`),_status)
+}
+    }
+    )
+    }
+    
+
+    
+
+    
+
+
+    
+    companion object {
+        
+    /**
+     * `schema_json` is the app's flags.json; `cache_path` a file the app
+     * owns (nil keeps nothing between launches); `user` the signed-in
+     * user's id, or nil to evaluate for this install.
+     */
+    @Throws(SyncException::class) fun `open`(`schemaJson`: kotlin.String, `cachePath`: kotlin.String?, `user`: kotlin.String?): FlagStore {
+            return FfiConverterTypeFlagStore.lift(
+    uniffiRustCallWithError(SyncException) { _status ->
+    UniffiLib.uniffi_sync_ffi_fn_constructor_flagstore_open(
+    
+        
+        FfiConverterString.lower(`schemaJson`),
+        FfiConverterOptionalString.lower(`cachePath`),
+        FfiConverterOptionalString.lower(`user`),_status)
+}
+    )
+    }
+    
+
+        
+    }
+    
+}
+
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeFlagStore: FfiConverter<FlagStore, Long> {
+    override fun lower(value: FlagStore): Long {
+        return value.uniffiCloneHandle()
+    }
+
+    override fun lift(value: Long): FlagStore {
+        return FlagStore(UniffiWithHandle, value)
+    }
+
+    override fun read(buf: ByteBuffer): FlagStore {
+        return lift(buf.getLong())
+    }
+
+    override fun allocationSize(value: FlagStore) = 8UL
+
+    override fun write(value: FlagStore, buf: ByteBuffer) {
+        buf.putLong(lower(value))
     }
 }
 
@@ -2342,6 +3015,38 @@ public object FfiConverterTypeSyncError : FfiConverterRustBuffer<SyncException> 
         }.let { /* this makes the `when` an expression, which ensures it is exhaustive */ }
     }
 
+}
+
+
+
+
+/**
+ * @suppress
+ */
+public object FfiConverterOptionalULong: FfiConverterRustBuffer<kotlin.ULong?> {
+    override fun read(buf: ByteBuffer): kotlin.ULong? {
+        if (buf.get().toInt() == 0) {
+            return null
+        }
+        return FfiConverterULong.read(buf)
+    }
+
+    override fun allocationSize(value: kotlin.ULong?): ULong {
+        if (value == null) {
+            return 1UL
+        } else {
+            return 1UL + FfiConverterULong.allocationSize(value)
+        }
+    }
+
+    override fun write(value: kotlin.ULong?, buf: ByteBuffer) {
+        if (value == null) {
+            buf.put(0)
+        } else {
+            buf.put(1)
+            FfiConverterULong.write(value, buf)
+        }
+    }
 }
 
 

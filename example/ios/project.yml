@@ -18,6 +18,11 @@ targets:
         product: SyncKit
       - package: Flare
         product: SyncClient
+    # flags.json (example/flags.json, found above this folder) → a typed
+    # property per flag, on every build.
+    buildToolPlugins:
+      - plugin: FlareFlags
+        package: Flare
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.johnkueh.flare.groceries

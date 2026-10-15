@@ -5,7 +5,7 @@
   "compatibility_date": "2026-08-15",
   // Better Auth needs node:async_hooks.
   "compatibility_flags": ["nodejs_compat"],
-  "assets": { "directory": "public", "binding": "ASSETS", "run_worker_first": ["/v1/*", "/dev/*"] },
+  "assets": { "directory": "public", "binding": "ASSETS", "run_worker_first": ["/v1/*", "/dev/*", "/ofrep/*"] },
   "vars": {
     "BETTER_AUTH_URL": "http://localhost:8787",
     // Development only: anonymous sign-in without App Attest (the iOS
@@ -21,5 +21,8 @@
   "durable_objects": { "bindings": [{ "name": "SPACES", "class_name": "SpaceObject" }] },
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["SpaceObject"] }],
   "r2_buckets": [{ "binding": "SPACE_FILES", "bucket_name": "flare-example-files" }],
+  // flags.json's flags, in a Flagship app. Locally (`pnpm dev`) they come from
+  // wrangler's local store: `pnpm flags:local` creates them there.
+  "flagship": [{ "binding": "FLAGS", "app_id": "flare-example" }],
   "d1_databases": [{ "binding": "DB", "database_name": "flare-example", "database_id": "00000000-0000-0000-0000-000000000000" }]
 }

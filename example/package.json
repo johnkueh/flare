@@ -2,25 +2,30 @@
   "name": "@flare/example",
   "private": true,
   "type": "module",
-  "description": "A shared grocery list on Flare: the sync server and @flare/auth in one Worker, with a web page. Used to test the two end to end.",
+  "description": "A shared grocery list on Flare: the sync server, @flare/auth and @flare/flags in one Worker, with a web page. Used to test them end to end.",
   "scripts": {
-    "dev": "wrangler dev",
+    "dev": "pnpm build:web && flare-flags sync --local && wrangler dev",
+    "build:web": "esbuild web/flags.ts --bundle --format=esm --outfile=public/flags.js",
+    "flags:local": "flare-flags sync --local",
     "db:local": "node scripts/db-local.mjs",
     "test": "vitest run",
     "e2e": "node scripts/e2e.mjs",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "flags": "node --experimental-strip-types scripts/flags-cli.ts"
   },
   "dependencies": {
     "@flare/auth": "link:../auth",
+    "@flare/flags": "link:../flags",
     "@sync/server": "link:../server"
   },
   "devDependencies": {
-    "@cloudflare/vitest-pool-workers": "0.22.0",
+    "@cloudflare/vitest-pool-workers": "0.23.0",
     "@cloudflare/workers-types": "^5.20261010.1",
     "@types/node": "^22",
+    "esbuild": "0.25.11",
     "playwright-core": "1.56.1",
     "typescript": "^5.9.3",
     "vitest": "~4.1.11",
-    "wrangler": "4.124.0"
+    "wrangler": "4.151.0"
   }
 }

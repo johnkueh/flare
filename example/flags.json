@@ -1,0 +1,22 @@
+{
+  "$schema": "../flags/schema.json",
+  "flags": {
+    "banner": {
+      "default": "",
+      "description": "A note across the top of every screen. Empty: none."
+    },
+    "show-counts": {
+      "default": false,
+      "description": "Show how many items are left on each list."
+    },
+    "max-items": {
+      "default": 200,
+      "description": "The most items one list can hold."
+    },
+    "read-only": {
+      "default": false,
+      "live": true,
+      "description": "Kill switch: lists can be read but not changed."
+    }
+  }
+}

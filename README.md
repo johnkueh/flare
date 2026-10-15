@@ -6,7 +6,7 @@
 Worker: phones work offline, share data with each other, and catch up the
 moment they're back online.
 
-Sync, auth and product analytics, in one repo. Website: [flare.jkyf.dev](https://flare.jkyf.dev).
+Sync, auth, feature flags and product analytics, in one repo. Website: [flare.jkyf.dev](https://flare.jkyf.dev).
 
 ## What you get
 
@@ -36,6 +36,10 @@ CRDT like Yjs ([why](SYNC.md#why-not-yjs)).
 Web pages read and write through your Worker.
 <br clear="right">
 
+**Feature flags.** List them in one `flags.json`; Cloudflare Flagship
+serves them. Typed on every platform with no codegen step, and they work
+offline.
+
 <img align="right" src="docs/cheap.svg" width="288" alt="A space's server sleeps until someone syncs">
 
 **Cheap to run.** One Durable Object per space, photos in R2. It sleeps
@@ -47,8 +51,9 @@ until someone syncs. Nothing to babysit.
 **Worker**
 
 ```sh
-pnpm add "@sync/server@github:johnkueh/flare#0.2.0&path:/server"
-pnpm add "@flare/auth@github:johnkueh/flare#0.2.0&path:/auth"   # accounts (AUTH.md)
+pnpm add "@sync/server@github:johnkueh/flare#0.4.0&path:/server"
+pnpm add "@flare/auth@github:johnkueh/flare#0.4.0&path:/auth"   # accounts (AUTH.md)
+pnpm add "@flare/flags@github:johnkueh/flare#0.4.0&path:/flags" # feature flags (FLAGS.md)
 ```
 
 ```ts
@@ -66,7 +71,7 @@ maven("https://jitpack.io")
 maven("https://pub-796846793f3e431ab3a92e0577c57dde.r2.dev/maven")
 
 // app/build.gradle.kts
-implementation("com.github.johnkueh:flare:0.2.0")
+implementation("com.github.johnkueh:flare:0.4.0")
 ```
 
 Then describe your data in one JSON file and open the store:
@@ -81,4 +86,5 @@ try store.putDoc(collection: "groceries", doc: id, fieldsJson: #"{"name":"Milk"}
 - [SYNC.md](SYNC.md): setup in full, the data model, web pages, releasing
 - [PROTOCOL.md](PROTOCOL.md): the wire format, for anyone writing a client
 - [AUTH.md](AUTH.md): accounts on Better Auth, signing in from a phone
+- [FLAGS.md](FLAGS.md): feature flags on Cloudflare Flagship, for iOS, Android, web, Node and Rust
 - [TELEMETRY.md](TELEMETRY.md): product analytics into Cloudflare Basin, from a Rust SDK

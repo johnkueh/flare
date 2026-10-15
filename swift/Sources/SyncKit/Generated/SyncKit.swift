@@ -465,6 +465,22 @@ fileprivate final class UniffiHandleMap<T>: @unchecked Sendable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
+fileprivate struct FfiConverterUInt16: FfiConverterPrimitive {
+    typealias FfiType = UInt16
+    typealias SwiftType = UInt16
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> UInt16 {
+        return try lift(readInt(&buf))
+    }
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        writeInt(&buf, lower(value))
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
 fileprivate struct FfiConverterUInt64: FfiConverterPrimitive {
     typealias FfiType = UInt64
     typealias SwiftType = UInt64
@@ -474,6 +490,22 @@ fileprivate struct FfiConverterUInt64: FfiConverterPrimitive {
     }
 
     public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        writeInt(&buf, lower(value))
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterInt64: FfiConverterPrimitive {
+    typealias FfiType = Int64
+    typealias SwiftType = Int64
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> Int64 {
+        return try lift(readInt(&buf))
+    }
+
+    public static func write(_ value: Int64, into buf: inout [UInt8]) {
         writeInt(&buf, lower(value))
     }
 }
@@ -563,6 +595,337 @@ fileprivate struct FfiConverterString: FfiConverter {
         writeBytes(&buf, value.utf8)
     }
 }
+
+
+
+
+public protocol FlagStoreProtocol: AnyObject, Sendable {
+    
+    /**
+     * Lets flags that were read take their latest values (call it when
+     * the app comes to the foreground). Returns the flags that changed.
+     */
+    func activate()  -> [String]
+    
+    /**
+     * Applies the server's answer; returns the flags that changed.
+     */
+    func applyResponse(status: UInt16, etag: String?, body: String) throws  -> [String]
+    
+    func boolValue(key: String)  -> Bool
+    
+    /**
+     * The `If-None-Match` header to send, if any.
+     */
+    func etag()  -> String?
+    
+    /**
+     * When the server last answered (ms since 1970), or nil.
+     */
+    func fetchedAt()  -> UInt64?
+    
+    func identity()  -> String
+    
+    func intValue(key: String)  -> Int64
+    
+    func numberValue(key: String)  -> Double
+    
+    /**
+     * The body for `POST /ofrep/v1/evaluate/flags`. `context_json` is a
+     * JSON object of extra attributes (platform, appVersion…).
+     */
+    func requestBody(contextJson: String) throws  -> String
+    
+    /**
+     * Evaluates for a signed-in user (nil: this install). Values go back
+     * to their defaults until the next response; returns what changed.
+     */
+    func setUser(user: String?)  -> [String]
+    
+    /**
+     * Every flag's value as a JSON object, without holding any.
+     */
+    func snapshotJson()  -> String
+    
+    func stringValue(key: String)  -> String
+    
+    /**
+     * A flag's value as JSON, or nil for a key not in flags.json. Reading
+     * a flag holds its value until `activate`.
+     */
+    func valueJson(key: String)  -> String?
+    
+}
+open class FlagStore: FlagStoreProtocol, @unchecked Sendable {
+    fileprivate let handle: UInt64
+
+    /// Used to instantiate a [FFIObject] without an actual handle, for fakes in tests, mostly.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public struct NoHandle {
+        public init() {}
+    }
+
+    // TODO: We'd like this to be `private` but for Swifty reasons,
+    // we can't implement `FfiConverter` without making this `required` and we can't
+    // make it `required` without making it `public`.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    required public init(unsafeFromHandle handle: UInt64) {
+        self.handle = handle
+    }
+
+    // This constructor can be used to instantiate a fake object.
+    // - Parameter noHandle: Placeholder value so we can have a constructor separate from the default empty one that may be implemented for classes extending [FFIObject].
+    //
+    // - Warning:
+    //     Any object instantiated with this constructor cannot be passed to an actual Rust-backed object. Since there isn't a backing handle the FFI lower functions will crash.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public init(noHandle: NoHandle) {
+        self.handle = 0
+    }
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public func uniffiCloneHandle() -> UInt64 {
+        return try! rustCall { uniffi_sync_ffi_fn_clone_flagstore(self.handle, $0) }
+    }
+    // No primary constructor declared for this class.
+
+    deinit {
+        if handle == 0 {
+            // Mock objects have handle=0 don't try to free them
+            return
+        }
+
+        try! rustCall { uniffi_sync_ffi_fn_free_flagstore(handle, $0) }
+    }
+
+    
+    /**
+     * `schema_json` is the app's flags.json; `cache_path` a file the app
+     * owns (nil keeps nothing between launches); `user` the signed-in
+     * user's id, or nil to evaluate for this install.
+     */
+public static func `open`(schemaJson: String, cachePath: String?, user: String?)throws  -> FlagStore  {
+    return try  FfiConverterTypeFlagStore_lift(try rustCallWithError(FfiConverterTypeSyncError_lift) {
+        uniffiCallStatus in
+    uniffi_sync_ffi_fn_constructor_flagstore_open(
+        FfiConverterString.lower(schemaJson),
+        FfiConverterOptionString.lower(cachePath),
+        FfiConverterOptionString.lower(user),uniffiCallStatus
+    )
+})
+}
+    
+
+    
+    /**
+     * Lets flags that were read take their latest values (call it when
+     * the app comes to the foreground). Returns the flags that changed.
+     */
+open func activate() -> [String]  {
+    return try!  FfiConverterSequenceString.lift(try! rustCall() {
+        uniffiCallStatus in
+    uniffi_sync_ffi_fn_method_flagstore_activate(
+            self.uniffiCloneHandle(),uniffiCallStatus
+    )
+})
+}
+    
+    /**
+     * Applies the server's answer; returns the flags that changed.
+     */
+open func applyResponse(status: UInt16, etag: String?, body: String)throws  -> [String]  {
+    return try  FfiConverterSequenceString.lift(try rustCallWithError(FfiConverterTypeSyncError_lift) {
+        uniffiCallStatus in
+    uniffi_sync_ffi_fn_method_flagstore_apply_response(
+            self.uniffiCloneHandle(),
+        FfiConverterUInt16.lower(status),
+        FfiConverterOptionString.lower(etag),
+        FfiConverterString.lower(body),uniffiCallStatus
+    )
+})
+}
+    
+open func boolValue(key: String) -> Bool  {
+    return try!  FfiConverterBool.lift(try! rustCall() {
+        uniffiCallStatus in
+    uniffi_sync_ffi_fn_method_flagstore_bool_value(
+            self.uniffiCloneHandle(),
+        FfiConverterString.lower(key),uniffiCallStatus
+    )
+})
+}
+    
+    /**
+     * The `If-None-Match` header to send, if any.
+     */
+open func etag() -> String?  {
+    return try!  FfiConverterOptionString.lift(try! rustCall() {
+        uniffiCallStatus in
+    uniffi_sync_ffi_fn_method_flagstore_etag(
+            self.uniffiCloneHandle(),uniffiCallStatus
+    )
+})
+}
+    
+    /**
+     * When the server last answered (ms since 1970), or nil.
+     */
+open func fetchedAt() -> UInt64?  {
+    return try!  FfiConverterOptionUInt64.lift(try! rustCall() {
+        uniffiCallStatus in
+    uniffi_sync_ffi_fn_method_flagstore_fetched_at(
+            self.uniffiCloneHandle(),uniffiCallStatus
+    )
+})
+}
+    
+open func identity() -> String  {
+    return try!  FfiConverterString.lift(try! rustCall() {
+        uniffiCallStatus in
+    uniffi_sync_ffi_fn_method_flagstore_identity(
+            self.uniffiCloneHandle(),uniffiCallStatus
+    )
+})
+}
+    
+open func intValue(key: String) -> Int64  {
+    return try!  FfiConverterInt64.lift(try! rustCall() {
+        uniffiCallStatus in
+    uniffi_sync_ffi_fn_method_flagstore_int_value(
+            self.uniffiCloneHandle(),
+        FfiConverterString.lower(key),uniffiCallStatus
+    )
+})
+}
+    
+open func numberValue(key: String) -> Double  {
+    return try!  FfiConverterDouble.lift(try! rustCall() {
+        uniffiCallStatus in
+    uniffi_sync_ffi_fn_method_flagstore_number_value(
+            self.uniffiCloneHandle(),
+        FfiConverterString.lower(key),uniffiCallStatus
+    )
+})
+}
+    
+    /**
+     * The body for `POST /ofrep/v1/evaluate/flags`. `context_json` is a
+     * JSON object of extra attributes (platform, appVersion…).
+     */
+open func requestBody(contextJson: String)throws  -> String  {
+    return try  FfiConverterString.lift(try rustCallWithError(FfiConverterTypeSyncError_lift) {
+        uniffiCallStatus in
+    uniffi_sync_ffi_fn_method_flagstore_request_body(
+            self.uniffiCloneHandle(),
+        FfiConverterString.lower(contextJson),uniffiCallStatus
+    )
+})
+}
+    
+    /**
+     * Evaluates for a signed-in user (nil: this install). Values go back
+     * to their defaults until the next response; returns what changed.
+     */
+open func setUser(user: String?) -> [String]  {
+    return try!  FfiConverterSequenceString.lift(try! rustCall() {
+        uniffiCallStatus in
+    uniffi_sync_ffi_fn_method_flagstore_set_user(
+            self.uniffiCloneHandle(),
+        FfiConverterOptionString.lower(user),uniffiCallStatus
+    )
+})
+}
+    
+    /**
+     * Every flag's value as a JSON object, without holding any.
+     */
+open func snapshotJson() -> String  {
+    return try!  FfiConverterString.lift(try! rustCall() {
+        uniffiCallStatus in
+    uniffi_sync_ffi_fn_method_flagstore_snapshot_json(
+            self.uniffiCloneHandle(),uniffiCallStatus
+    )
+})
+}
+    
+open func stringValue(key: String) -> String  {
+    return try!  FfiConverterString.lift(try! rustCall() {
+        uniffiCallStatus in
+    uniffi_sync_ffi_fn_method_flagstore_string_value(
+            self.uniffiCloneHandle(),
+        FfiConverterString.lower(key),uniffiCallStatus
+    )
+})
+}
+    
+    /**
+     * A flag's value as JSON, or nil for a key not in flags.json. Reading
+     * a flag holds its value until `activate`.
+     */
+open func valueJson(key: String) -> String?  {
+    return try!  FfiConverterOptionString.lift(try! rustCall() {
+        uniffiCallStatus in
+    uniffi_sync_ffi_fn_method_flagstore_value_json(
+            self.uniffiCloneHandle(),
+        FfiConverterString.lower(key),uniffiCallStatus
+    )
+})
+}
+    
+
+    
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeFlagStore: FfiConverter {
+    typealias FfiType = UInt64
+    typealias SwiftType = FlagStore
+
+    public static func lift(_ handle: UInt64) throws -> FlagStore {
+        return FlagStore(unsafeFromHandle: handle)
+    }
+
+    public static func lower(_ value: FlagStore) -> UInt64 {
+        return value.uniffiCloneHandle()
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> FlagStore {
+        let handle: UInt64 = try readInt(&buf)
+        return try lift(handle)
+    }
+
+    public static func write(_ value: FlagStore, into buf: inout [UInt8]) {
+        writeInt(&buf, lower(value))
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFlagStore_lift(_ handle: UInt64) throws -> FlagStore {
+    return try FfiConverterTypeFlagStore.lift(handle)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeFlagStore_lower(_ value: FlagStore) -> UInt64 {
+    return FfiConverterTypeFlagStore.lower(value)
+}
+
+
 
 
 
@@ -1306,6 +1669,30 @@ public func FfiConverterTypeSyncError_lower(_ value: SyncError) -> RustBuffer {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
+fileprivate struct FfiConverterOptionUInt64: FfiConverterRustBuffer {
+    typealias SwiftType = UInt64?
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterUInt64.write(value, into: &buf)
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterUInt64.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
 fileprivate struct FfiConverterOptionString: FfiConverterRustBuffer {
     typealias SwiftType = String?
 
@@ -1451,6 +1838,45 @@ private let initializationResult: InitializationResult = {
     if (uniffi_sync_ffi_checksum_func_position_between() != 2982) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_sync_ffi_checksum_method_flagstore_activate() != 44218) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_sync_ffi_checksum_method_flagstore_apply_response() != 36032) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_sync_ffi_checksum_method_flagstore_bool_value() != 50982) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_sync_ffi_checksum_method_flagstore_etag() != 42297) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_sync_ffi_checksum_method_flagstore_fetched_at() != 45529) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_sync_ffi_checksum_method_flagstore_identity() != 23362) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_sync_ffi_checksum_method_flagstore_int_value() != 5934) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_sync_ffi_checksum_method_flagstore_number_value() != 35314) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_sync_ffi_checksum_method_flagstore_request_body() != 52003) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_sync_ffi_checksum_method_flagstore_set_user() != 10833) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_sync_ffi_checksum_method_flagstore_snapshot_json() != 357) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_sync_ffi_checksum_method_flagstore_string_value() != 47428) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_sync_ffi_checksum_method_flagstore_value_json() != 55340) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_sync_ffi_checksum_method_syncstore_ack_push() != 21313) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -1530,6 +1956,9 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_sync_ffi_checksum_method_syncstore_take_push() != 33446) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_sync_ffi_checksum_constructor_flagstore_open() != 37825) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_sync_ffi_checksum_constructor_syncstore_open() != 40163) {
