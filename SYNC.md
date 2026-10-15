@@ -36,6 +36,14 @@ repo on every platform and bump it together.
   (field types below). Apps bundle it and pass it
   to `SyncStore.open` as it is; the server checks pushes against its
   `collections` with `schemaMismatches`. Nothing is generated from it.
+  An app whose records live in Rust keeps them in step with a test:
+  add `sync-core` as a dev-dependency and assert that
+  `Schema::from_json(file).check_sample("<collection>", &serde_json::to_value(sample))`
+  is empty for a sample record with every field filled in.
+- **Saving records.** `putDoc` skips fields whose value is already stored,
+  so pass the whole record on every save. Only changed fields get a new
+  timestamp, and another phone's edit to a different field of the same
+  record still survives. Null clears a field (and empties a set).
 - **iOS.** Add the package `https://github.com/johnkueh/flare` (exact
   version or commit), link `SyncKit` and `SyncClient`, give `SpaceClient` a
   `SpaceTokens` (`FlareAuth`, with `@flare/auth`: AUTH.md), make your file store a `SpaceFileStore`, and run `SyncPass` /
