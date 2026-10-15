@@ -126,3 +126,16 @@ describe("dev outbox", () => {
     expect(res.body).toEqual({ code: null });
   });
 });
+
+describe("flags", () => {
+  it("answers every flag in flags.json, and still answers without Flagship", async () => {
+    // The test pool has no local Flagship store, so each flag comes back as
+    // an error the apps turn into its default.
+    const res = await new Client("Mia's iPhone").call("POST", "/ofrep/v1/evaluate/flags", { context: { targetingKey: "install-1" } });
+    expect(res.status).toBe(200);
+    expect(res.headers.get("etag")).toBeTruthy();
+    const flags = res.body.flags as { key: string; value?: unknown; errorCode?: string }[];
+    expect(flags.map((f) => f.key)).toEqual(["banner", "show-counts", "max-items", "read-only"]);
+    for (const f of flags) expect(f.value !== undefined || f.errorCode !== undefined).toBe(true);
+  });
+});

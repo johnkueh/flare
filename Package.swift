@@ -1,9 +1,12 @@
 // swift-tools-version: 6.2
 //
-// Sync for Swift apps. Two libraries:
+// Flare for Swift apps. Two libraries and a build plugin:
 //
-//   SyncKit     the Rust store (crate sync-ffi) through UniFFI
-//   SyncClient  the HTTP client, sync pass, file transfer and live socket
+//   SyncKit     the Rust store and flags (crate sync-ffi) through UniFFI
+//   SyncClient  the HTTP client, sync pass, file transfer, live socket,
+//               accounts and feature flags
+//   FlareFlags  generates a typed property per flag from the app's
+//               flags.json, on every build (FLAGS.md)
 //
 // The Rust store (`SyncFFI`) comes prebuilt from the URL below, so an app
 // builds without cargo. scripts/publish-binaries.sh builds, uploads and
@@ -27,6 +30,7 @@ let package = Package(
     products: [
         .library(name: "SyncKit", targets: ["SyncKit"]),
         .library(name: "SyncClient", targets: ["SyncClient"]),
+        .plugin(name: "FlareFlags", targets: ["FlareFlags"]),
     ],
     targets: [
         // Static libraries (iOS device, iOS simulator arm64+x86_64, macOS
@@ -49,11 +53,32 @@ let package = Package(
             path: "swift/Sources/SyncClient",
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
+        // flags.json → Swift, run by the plugin on the build machine.
+        .executableTarget(
+            name: "FlareFlagsGen",
+            path: "swift/Sources/FlareFlagsGen",
+            swiftSettings: [.swiftLanguageMode(.v6)]
+        ),
+        .plugin(
+            name: "FlareFlags",
+            capability: .buildTool(),
+            dependencies: ["FlareFlagsGen"],
+            path: "swift/Plugins/FlareFlags"
+        ),
         .testTarget(
             name: "SyncKitTests",
             dependencies: ["SyncKit"],
             path: "swift/Tests/SyncKitTests",
             swiftSettings: [.swiftLanguageMode(.v6)]
+        ),
+        // Flags end to end: the plugin's generated properties over a stub Worker.
+        .testTarget(
+            name: "FlareFlagsTests",
+            dependencies: ["SyncClient"],
+            path: "swift/Tests/FlareFlagsTests",
+            exclude: ["flags.json"],
+            swiftSettings: [.swiftLanguageMode(.v6)],
+            plugins: ["FlareFlags"]
         ),
     ]
 )

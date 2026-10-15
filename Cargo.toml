@@ -16,6 +16,7 @@ getrandom = "0.4"
 thiserror = "2"
 proptest = "1"
 sync-core = { path = "crates/sync-core" }
+flare-flags = { path = "crates/flags" }
 
 [profile.dev]
 opt-level = 1
