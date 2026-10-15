@@ -173,7 +173,13 @@ export function createFlags(options) {
         if (doc?.visibilityState !== "visible")
             return;
         activate();
-        void refresh();
+        // Values that arrive within a moment of becoming visible still count as
+        // this visit's; later ones wait for the next.
+        const start = Date.now();
+        void refresh().then(() => {
+            if (Date.now() - start < 2000)
+                activate();
+        });
     };
     doc?.addEventListener("visibilitychange", onVisible);
     const ready = options.refreshOnStart === false ? Promise.resolve() : refresh().then(() => undefined);
