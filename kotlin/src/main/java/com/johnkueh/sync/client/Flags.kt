@@ -218,7 +218,13 @@ class Flags(
             override fun onActivityStarted(activity: Activity) {
                 if (started++ > 0) return
                 activate()
-                scope.launch { refresh() }
+                // Values that arrive within a moment of coming back still
+                // count as this foreground's; later ones wait for the next.
+                val start = System.nanoTime()
+                scope.launch {
+                    refresh()
+                    if (System.nanoTime() - start < 2_000_000_000L) activate()
+                }
                 if (options.refreshIntervalMs > 0) {
                     ticker = scope.launch {
                         while (isActive) {

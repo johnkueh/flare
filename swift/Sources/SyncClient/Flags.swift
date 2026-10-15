@@ -228,7 +228,13 @@ public final class Flags {
             MainActor.assumeIsolated {
                 guard let self else { return }
                 self.activate()
-                Task { await self.refresh() }
+                // Values that arrive within a moment of coming back still
+                // count as this foreground's; later ones wait for the next.
+                let start = ContinuousClock.now
+                Task {
+                    await self.refresh()
+                    if ContinuousClock.now - start < .seconds(2) { self.activate() }
+                }
             }
         })
         #endif
