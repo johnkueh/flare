@@ -254,15 +254,28 @@ impl Store {
     }
 
     /// Writes several fields of one document at once. Set fields take an
-    /// array of members (written with `set_members`); counter fields can't
-    /// be written this way.
+    /// array of members (written with `set_members`; null empties the set);
+    /// counter fields can't be written this way.
+    ///
+    /// On a live document, a field whose value is already what's stored is
+    /// left alone, so an app can pass its whole record on every save: only
+    /// what changed gets a new timestamp, and another phone's edit to a
+    /// different field still wins its own merge. On a new or deleted
+    /// document every field is written (writing brings a deleted one back).
     pub fn put_doc(&mut self, c: &str, d: &str, fields: &Map<String, Value>) -> Result<(), SyncError> {
         self.in_tx(|s| {
+            let live = s.get_doc(c, d)?;
             for (f, v) in fields {
+                if let Some(current) = live.as_ref().and_then(|doc| doc.as_object()) {
+                    if f != DELETED && s.unchanged(c, f, current.get(f), v) {
+                        continue;
+                    }
+                }
                 match s.schema.kind(c, f) {
                     Some(FieldKind::Counter) => {
                         return Err(SyncError::WrongKind(format!("{c}.{f} is a counter; use increment")))
                     }
+                    Some(FieldKind::Set) if v.is_null() => s.set_members_inner(c, d, f, &[])?,
                     Some(FieldKind::Set) => {
                         let members: Vec<String> = v.as_array()
                             .ok_or_else(|| SyncError::WrongKind(format!("{c}.{f} is a set; pass an array")))?
@@ -278,6 +291,29 @@ impl Store {
             }
             Ok(())
         })
+    }
+
+    /// `new` is what `current` (a field of the live document, as `get_doc`
+    /// reads it) already holds. Sets compare as sets; counters never match
+    /// (`put_doc` refuses them anyway); numbers compare by value, so 3 and
+    /// 3.0 are the same.
+    fn unchanged(&self, c: &str, f: &str, current: Option<&Value>, new: &Value) -> bool {
+        let current = current.unwrap_or(&Value::Null);
+        match self.schema.kind(c, f) {
+            Some(FieldKind::Counter) => false,
+            Some(FieldKind::Set) => {
+                let names = |v: &Value| -> Option<BTreeSet<String>> {
+                    match v {
+                        Value::Null => Some(BTreeSet::new()),
+                        Value::Array(a) => Some(a.iter()
+                            .map(|m| m.as_str().map(String::from).unwrap_or_else(|| m.to_string())).collect()),
+                        _ => None,
+                    }
+                };
+                matches!((names(current), names(new)), (Some(a), Some(b)) if a == b)
+            }
+            _ => same_json(current, new),
+        }
     }
 
     /// Points a document at its parent (same collection), or at none.
@@ -660,6 +696,18 @@ impl Store {
 
 fn parent_value(p: Option<&str>) -> Value {
     p.map(|p| Value::String(p.into())).unwrap_or(Value::Null)
+}
+
+/// JSON equality with numbers compared by value.
+fn same_json(a: &Value, b: &Value) -> bool {
+    match (a, b) {
+        (Value::Number(x), Value::Number(y)) => x.as_f64() == y.as_f64(),
+        (Value::Array(x), Value::Array(y)) => x.len() == y.len() && x.iter().zip(y).all(|(p, q)| same_json(p, q)),
+        (Value::Object(x), Value::Object(y)) => {
+            x.len() == y.len() && x.iter().all(|(k, v)| y.get(k).is_some_and(|w| same_json(v, w)))
+        }
+        _ => a == b,
+    }
 }
 
 /// Whole numbers as JSON integers, so `3` doesn't read back as `3.0`.
