@@ -169,7 +169,12 @@ async function main() {
     const flag = (await listRemote(args, app)).find((f) => f.key === key);
     if (!flag) fail(`${key} isn't in the dev store (run flare-flags sync --dev ${args.dev})`);
     let value = raw;
-    if (flag.type !== "string") {
+    // A string can be given bare (Back at 5pm) or as JSON ('"Back at 5pm"').
+    if (flag.type === "string" && /^".*"$/s.test(raw)) {
+      try {
+        value = JSON.parse(raw);
+      } catch {}
+    } else if (flag.type !== "string") {
       try {
         value = JSON.parse(raw);
       } catch {

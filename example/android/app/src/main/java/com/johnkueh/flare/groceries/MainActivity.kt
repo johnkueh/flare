@@ -108,10 +108,11 @@ private fun Heading(text: String) {
 private fun Entry(
     value: String, onValue: (String) -> Unit, label: String, button: String, onSubmit: () -> Unit,
     enabled: Boolean = value.isNotBlank(), keyboard: KeyboardOptions = KeyboardOptions.Default,
+    editable: Boolean = true,
 ) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         OutlinedTextField(
-            value, onValue, Modifier.weight(1f), label = { Text(label) }, singleLine = true,
+            value, onValue, Modifier.weight(1f), enabled = editable, label = { Text(label) }, singleLine = true,
             keyboardOptions = keyboard.copy(imeAction = ImeAction.Done),
             keyboardActions = KeyboardActions(onDone = { if (enabled) onSubmit() }),
         )
@@ -236,6 +237,7 @@ private fun GroceryList(app: AppModel, list: SavedList, onBack: () -> Unit) {
         Entry(
             newItem, { newItem = it }, if (full) "This list is full (${flags.maxItems} items)" else "Add an item", "Add",
             enabled = newItem.isNotBlank() && !full && !flags.readOnly,
+            editable = !full && !flags.readOnly,
             onSubmit = {
                 model.add(newItem.trim())
                 newItem = ""
