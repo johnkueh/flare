@@ -25,6 +25,7 @@
   form { display: flex; gap: 8px; flex-wrap: wrap; }
   input[type=text], input[type=email] { flex: 1 1 180px; min-width: 0; font: inherit; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--ink); }
   button { font: inherit; font-weight: 600; padding: 10px 14px; border: 0; border-radius: 8px; background: var(--accent); color: var(--accent-ink); cursor: pointer; }
+  button:disabled { opacity: .45; cursor: default; }
   button.quiet { background: transparent; color: var(--accent); padding: 4px 0; }
   ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
   li.item label { display: flex; gap: 10px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line); cursor: pointer; }
@@ -34,6 +35,8 @@
   .row { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
   .spaces button { width: 100%; text-align: left; background: var(--surface); color: var(--ink); border: 1px solid var(--line); }
   .error { color: #b42318; font-size: 14px; }
+  .banner { background: var(--accent); color: var(--accent-ink); border-radius: 10px; padding: 10px 14px; font-weight: 600; }
+  .note { border: 1px dashed var(--line); border-radius: 10px; padding: 10px 14px; color: var(--muted); }
   [hidden] { display: none !important; }
 </style>
 </head>
@@ -43,6 +46,9 @@
     <h1>Groceries</h1>
     <button class="quiet" id="sign-out" hidden>Sign out</button>
   </header>
+  <!-- Feature flags (flags.json): "banner" and "read-only". -->
+  <p class="banner" id="banner" hidden></p>
+  <p class="note" id="read-only" hidden>Lists are read-only for a moment. Back soon.</p>
 
   <!-- Signed out: email code. -->
   <section id="signed-out" hidden>
@@ -68,7 +74,7 @@
 
   <!-- One list. -->
   <section id="space" hidden>
-    <div class="row"><h2 id="space-name-label"></h2><button class="quiet" id="back">All lists</button></div>
+    <div class="row"><h2 id="space-name-label"></h2><span class="muted" id="count" hidden></span><button class="quiet" id="back">All lists</button></div>
     <div class="card">
       <form id="add-form"><input type="text" id="item-name" placeholder="Add an item" required><button>Add</button></form>
       <ul id="items"></ul>
@@ -79,9 +85,30 @@
     </div>
   </section>
 </main>
-<script>
+<script type="module">
+import { flags } from "/flags.js";
+
 const $ = (id) => document.getElementById(id);
 let current = null; // { info, socket }
+let itemCount = 0;
+
+// -- feature flags --------------------------------------------------------------
+
+/** Shows what the flags say. Runs on load and whenever a flag changes. */
+function applyFlags() {
+  const banner = flags.get("banner");
+  $("banner").textContent = banner;
+  $("banner").hidden = banner === "";
+  const readOnly = flags.get("read-only");
+  $("read-only").hidden = !readOnly;
+  const full = itemCount >= flags.get("max-items");
+  for (const el of $("add-form").elements) el.disabled = readOnly || full;
+  $("item-name").placeholder = full ? `This list is full (${flags.get("max-items")} items)` : "Add an item";
+  for (const box of $("items").querySelectorAll("input")) box.disabled = readOnly;
+  $("count").hidden = !flags.get("show-counts");
+  $("count").textContent = `${$("items").querySelectorAll("li:not(.done)").length} left`;
+}
+flags.subscribe(applyFlags);
 
 async function api(method, path, body) {
   const res = await fetch(path, {
@@ -151,6 +178,8 @@ async function home() {
     return li;
   }));
   $("no-spaces").hidden = me.spaces.length > 0;
+  // Flags for this user from now on (the Worker checks the session cookie).
+  void flags.setUser(me.user);
   show("home");
 }
 
@@ -215,6 +244,8 @@ async function refresh() {
     li.append(label);
     return li;
   }));
+  itemCount = docs.length;
+  applyFlags();
 }
 
 $("add-form").addEventListener("submit", async (e) => {
@@ -238,6 +269,7 @@ function closeSocket() {
   current = null;
 }
 
+applyFlags();
 home();
 </script>
 </body>

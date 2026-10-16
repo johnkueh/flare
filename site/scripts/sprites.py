@@ -125,12 +125,24 @@ def icon_analytics():
     body.append(f'<rect x="2" y="1" width="1" height="13" fill="{PAL["I"]}"/>')
     return svg(24, 16, "".join(body), "A bar chart")
 
+FLAG = [
+    "I", "IOOOOOOOOO", "IOOOOOOOOOO", "IOOYYOOOOOOO", "IOOYYOOOOOOO", "IOOOOOOOOOO", "IOOOOOOOOO",
+    "IDDDDDDDD", "I", "I", "I", "I", "I", "III",
+]
+
+def icon_flags():
+    # A flag on a pole, next to a switch flipped on.
+    body = rects(FLAG, 3, 1)
+    body += f'<rect x="16" y="9" width="7" height="4" fill="{PAL["g"]}"/>'
+    body += f'<rect x="20" y="9" width="3" height="4" fill="{PAL["O"]}"/>'
+    return svg(24, 16, body, "A flag and a switch")
+
 def favicon():
     return svg(10, 14, rects(FLAME_A, 0, 0), "Flare")
 
 if __name__ == "__main__":
     OUT.mkdir(parents=True, exist_ok=True)
     for name, s in {"hero.svg": hero(), "sync.svg": icon_sync(), "auth.svg": icon_auth(),
-                    "analytics.svg": icon_analytics(), "flame.svg": favicon()}.items():
+                    "analytics.svg": icon_analytics(), "flags.svg": icon_flags(), "flame.svg": favicon()}.items():
         (OUT / name).write_text(s)
         print(name, len(s))

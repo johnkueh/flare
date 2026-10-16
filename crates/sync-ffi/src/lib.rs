@@ -1,4 +1,5 @@
-//! UniFFI bindings over `sync-core` for Swift and Kotlin.
+//! UniFFI bindings over `sync-core` (and `flare-flags`, below) for Swift
+//! and Kotlin.
 //!
 //! Generic over any app's data: field values cross the boundary as JSON
 //! strings, documents as JSON objects. Each app wraps this in a typed
@@ -234,4 +235,126 @@ pub fn format_invite(code: String) -> String {
 #[uniffi::export]
 pub fn invite_link(base: String, code: String) -> String {
     sync_core::invite_link(&base, &code)
+}
+
+// Feature flags (crate flare-flags). The Swift and Kotlin `Flags` classes
+// in SyncClient do the HTTP and the app lifecycle around this.
+
+impl From<flare_flags::FlagsError> for SyncError {
+    fn from(e: flare_flags::FlagsError) -> Self {
+        use flare_flags::FlagsError as E;
+        match e {
+            E::Schema(message) => SyncError::Schema { message },
+            other => SyncError::BadResponse {
+                message: other.to_string(),
+            },
+        }
+    }
+}
+
+#[derive(uniffi::Object)]
+pub struct FlagStore {
+    inner: Mutex<flare_flags::Flags>,
+}
+
+impl FlagStore {
+    fn with<T>(&self, f: impl FnOnce(&mut flare_flags::Flags) -> T) -> T {
+        f(&mut self.inner.lock().unwrap_or_else(|p| p.into_inner()))
+    }
+}
+
+#[uniffi::export]
+impl FlagStore {
+    /// `schema_json` is the app's flags.json; `cache_path` a file the app
+    /// owns (nil keeps nothing between launches); `user` the signed-in
+    /// user's id, or nil to evaluate for this install.
+    #[uniffi::constructor]
+    pub fn open(
+        schema_json: String,
+        cache_path: Option<String>,
+        user: Option<String>,
+    ) -> Result<Arc<FlagStore>, SyncError> {
+        let flags = flare_flags::Flags::open(&schema_json, cache_path.map(Into::into), user)?;
+        Ok(Arc::new(FlagStore {
+            inner: Mutex::new(flags),
+        }))
+    }
+
+    /// A flag's value as JSON, or nil for a key not in flags.json. Reading
+    /// a flag holds its value until `activate`.
+    pub fn value_json(&self, key: String) -> Option<String> {
+        self.with(|f| f.value(&key).map(|v| v.to_string()))
+    }
+
+    pub fn bool_value(&self, key: String) -> bool {
+        self.with(|f| f.bool(&key))
+    }
+
+    pub fn int_value(&self, key: String) -> i64 {
+        self.with(|f| f.int(&key))
+    }
+
+    pub fn number_value(&self, key: String) -> f64 {
+        self.with(|f| f.number(&key))
+    }
+
+    pub fn string_value(&self, key: String) -> String {
+        self.with(|f| f.string(&key))
+    }
+
+    /// Every flag's value as a JSON object, without holding any.
+    pub fn snapshot_json(&self) -> String {
+        self.with(|f| serde_json::Value::Object(f.snapshot()).to_string())
+    }
+
+    /// The body for `POST /ofrep/v1/evaluate/flags`. `context_json` is a
+    /// JSON object of extra attributes (platform, appVersion…).
+    pub fn request_body(&self, context_json: String) -> Result<String, SyncError> {
+        let extra = match json(&context_json)? {
+            serde_json::Value::Object(m) => m,
+            _ => {
+                return Err(SyncError::BadJson {
+                    message: "context must be a JSON object".into(),
+                })
+            }
+        };
+        Ok(self.with(|f| f.request_body(&extra)))
+    }
+
+    /// The `If-None-Match` header to send, if any.
+    pub fn etag(&self) -> Option<String> {
+        self.with(|f| f.etag().map(str::to_owned))
+    }
+
+    /// Applies the server's answer; returns the flags that changed.
+    pub fn apply_response(
+        &self,
+        status: u16,
+        etag: Option<String>,
+        body: String,
+    ) -> Result<Vec<String>, SyncError> {
+        self.with(|f| f.apply(status, etag.as_deref(), &body))
+            .map_err(SyncError::from)
+    }
+
+    /// Lets flags that were read take their latest values (call it when
+    /// the app comes to the foreground). Returns the flags that changed.
+    pub fn activate(&self) -> Vec<String> {
+        self.with(|f| f.activate())
+    }
+
+    /// Evaluates for a signed-in user (nil: this install). Values go back
+    /// to their defaults until the next response; returns what changed.
+    pub fn set_user(&self, user: Option<String>) -> Vec<String> {
+        self.with(|f| f.set_user(user))
+    }
+
+    pub fn identity(&self) -> String {
+        self.with(|f| f.identity().to_owned())
+    }
+
+    /// When the server last answered (ms since 1970), or nil.
+    pub fn fetched_at(&self) -> Option<u64> {
+        self.with(|f| f.fetched_at())
+    }
 }

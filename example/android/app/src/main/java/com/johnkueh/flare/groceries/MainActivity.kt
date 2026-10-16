@@ -5,6 +5,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -14,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -30,6 +32,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -38,6 +41,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -46,6 +50,7 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
+import com.johnkueh.sync.client.Flags
 import com.johnkueh.sync.ffi.formatInvite
 import kotlinx.coroutines.launch
 
@@ -103,14 +108,39 @@ private fun Heading(text: String) {
 private fun Entry(
     value: String, onValue: (String) -> Unit, label: String, button: String, onSubmit: () -> Unit,
     enabled: Boolean = value.isNotBlank(), keyboard: KeyboardOptions = KeyboardOptions.Default,
+    editable: Boolean = true,
 ) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         OutlinedTextField(
-            value, onValue, Modifier.weight(1f), label = { Text(label) }, singleLine = true,
+            value, onValue, Modifier.weight(1f), enabled = editable, label = { Text(label) }, singleLine = true,
             keyboardOptions = keyboard.copy(imeAction = ImeAction.Done),
             keyboardActions = KeyboardActions(onDone = { if (enabled) onSubmit() }),
         )
         Button(onClick = onSubmit, enabled = enabled) { Text(button) }
+    }
+}
+
+/** The flags, redrawing whatever reads them when any of them changes. */
+@Composable
+private fun observe(flags: Flags): Flags {
+    flags.revision.collectAsState().value
+    return flags
+}
+
+/** What the flags say across the top of a screen: the banner and the
+ *  read-only kill switch. */
+@Composable
+private fun FlagNotes(app: AppModel) {
+    val flags = observe(app.flags)
+    if (flags.banner.isNotEmpty()) {
+        Text(
+            flags.banner,
+            Modifier.fillMaxWidth().background(Color(0xFFF97316), RoundedCornerShape(10.dp)).padding(12.dp),
+            color = Color.White, fontWeight = FontWeight.SemiBold,
+        )
+    }
+    if (flags.readOnly) {
+        Text("Lists are read-only for a moment. Back soon.", color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -126,6 +156,7 @@ private fun Home(app: AppModel, onOpen: (SavedList) -> Unit) {
     LaunchedEffect(Unit) { app.refresh() }
 
     Screen("Groceries") {
+        FlagNotes(app)
         Heading("Your lists")
         if (app.lists.isEmpty()) Text("No lists yet.", color = MaterialTheme.colorScheme.onSurfaceVariant)
         app.lists.forEach { list ->
@@ -198,16 +229,24 @@ private fun GroceryList(app: AppModel, list: SavedList, onBack: () -> Unit) {
         onDispose { model.stop() }
     }
     var newItem by rememberSaveable { mutableStateOf("") }
+    val flags = observe(app.flags)
+    val full = model.items.size >= flags.maxItems
 
     Screen(list.name, onBack) {
-        Entry(newItem, { newItem = it }, "Add an item", "Add", onSubmit = {
-            model.add(newItem.trim())
-            newItem = ""
-        })
+        FlagNotes(app)
+        Entry(
+            newItem, { newItem = it }, if (full) "This list is full (${flags.maxItems} items)" else "Add an item", "Add",
+            enabled = newItem.isNotBlank() && !full && !flags.readOnly,
+            editable = !full && !flags.readOnly,
+            onSubmit = {
+                model.add(newItem.trim())
+                newItem = ""
+            },
+        )
         model.items.forEach { item ->
             val done = item.done == true
-            Row(Modifier.fillMaxWidth().clickable { model.toggle(item) }, verticalAlignment = Alignment.CenterVertically) {
-                Checkbox(checked = done, onCheckedChange = { model.toggle(item) })
+            Row(Modifier.fillMaxWidth().clickable(enabled = !flags.readOnly) { model.toggle(item) }, verticalAlignment = Alignment.CenterVertically) {
+                Checkbox(checked = done, onCheckedChange = { model.toggle(item) }, enabled = !flags.readOnly)
                 Text(
                     item.name.orEmpty(),
                     textDecoration = if (done) TextDecoration.LineThrough else null,
@@ -215,8 +254,9 @@ private fun GroceryList(app: AppModel, list: SavedList, onBack: () -> Unit) {
                 )
             }
         }
+        val left = model.items.count { it.done != true }
         Text(
-            model.error ?: if (model.isLive) "Live" else "Connecting…",
+            model.error ?: ((if (model.isLive) "Live" else "Connecting…") + if (flags.showCounts) " · $left left" else ""),
             style = MaterialTheme.typography.bodySmall,
             color = if (model.error != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
         )

@@ -13,6 +13,8 @@ export default defineConfig({
   plugins: [
     cloudflareTest({
       wrangler: { configPath: "./wrangler.jsonc" },
+      // Flagship from the local store (empty: every flag is its default).
+      remoteBindings: false,
       miniflare: {
         bindings: {
           BETTER_AUTH_SECRET: "test-secret-test-secret-test-secret-0123",

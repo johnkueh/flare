@@ -1,6 +1,7 @@
 // The example in a real browser: two people, each in their own browser
 // window, sign in by email code, share a list by its invite code, and see
-// each other's items arrive live.
+// each other's items arrive live. Then flags changed in Flagship (wrangler
+// dev's local store) reach both pages and the command-line tool.
 //
 //   pnpm e2e                                  # starts wrangler dev on a fresh local state
 //   CHROMIUM=/path/to/chrome pnpm e2e         # another browser
@@ -30,6 +31,8 @@ async function main() {
     base = `http://localhost:${PORT}`;
     await waitFor(base);
   }
+  // flags.json's flags into the dev server's Flagship store.
+  flareFlags(base, "sync");
 
   const browser = await chromium.launch({ executablePath: findChromium() });
   try {
@@ -67,6 +70,31 @@ async function main() {
     await sam.waitForSelector("#signed-out:not([hidden])");
     await signIn(sam, base, "sam@example.com");
     await sam.waitForSelector("#spaces button:has-text('Weekly shop')");
+
+    step("Flags: a banner set in Flagship shows when Mia comes back to the page");
+    flareFlags(base, "set", "banner", "Fresh bread on Fridays");
+    await mia.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
+    await mia.waitForSelector("#banner:has-text('Fresh bread on Fridays')", { timeout: 10_000 });
+
+    step("Flags: the read-only kill switch (live) reaches Sam on the next refresh, no reload");
+    await sam.click("#spaces button:has-text('Weekly shop')");
+    await sam.waitForSelector("#add-form button:enabled");
+    flareFlags(base, "set", "read-only", "true");
+    await sam.evaluate(() => globalThis.flags.refresh());
+    await sam.waitForSelector("#add-form button:disabled", { timeout: 10_000 });
+    await sam.waitForSelector("#read-only:not([hidden])");
+    flareFlags(base, "set", "read-only", "false");
+    await sam.evaluate(() => globalThis.flags.refresh());
+    await sam.waitForSelector("#add-form button:enabled", { timeout: 10_000 });
+
+    step("Flags: max-items 2 fills Mia's two-item list");
+    flareFlags(base, "set", "max-items", "2");
+    await mia.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
+    await mia.waitForSelector("#item-name[placeholder*='full']", { timeout: 10_000 });
+
+    step("Flags: the command-line tool reads the same values");
+    const cli = execFileSync("node", ["--experimental-strip-types", "--no-warnings", "scripts/flags-cli.ts", "--server", base], { encoding: "utf8" });
+    if (!cli.includes("Fresh bread on Fridays") || !/max-items\s+2/.test(cli)) throw new Error(`the CLI printed:\n${cli}`);
 
     await mia.screenshot({ path: `${STATE}/mia.png` });
     await sam.screenshot({ path: `${STATE}/sam.png` });
@@ -119,6 +147,11 @@ async function waitFor(base) {
     await sleep(500);
   }
   throw new Error("wrangler dev didn't start");
+}
+
+/** The flare-flags CLI against the dev server's local Flagship store. */
+function flareFlags(base, ...args) {
+  execFileSync("node", ["../flags/bin/flare-flags.mjs", ...args, "--dev", base], { stdio: "inherit" });
 }
 
 function findChromium() {
