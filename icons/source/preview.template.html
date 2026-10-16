@@ -1,0 +1,194 @@
+<title>House Icons</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: specimen sheet. Toolbar, then one tile grid per group; a detail panel docks right (below on phones). */
+:root {
+  --bg: #f6f7f9; --panel: #ffffff; --ink: #14161c; --muted: #646b7a; --line: #e2e5eb;
+  --tile: #ffffff; --tile-hover: #eef1f6; --accent: #2f5bd3; --accent-ink: #ffffff; --keyline: rgba(47, 91, 211, .14);
+  --font-display: "Schibsted Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-body: "Schibsted Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0f1116; --panel: #171a21; --ink: #e9ecf2; --muted: #9098a8; --line: #262a34;
+  --tile: #171a21; --tile-hover: #20242d; --accent: #7d9cff; --accent-ink: #0f1116; --keyline: rgba(125, 156, 255, .18); color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #0f1116; --panel: #171a21; --ink: #e9ecf2; --muted: #9098a8; --line: #262a34;
+  --tile: #171a21; --tile-hover: #20242d; --accent: #7d9cff; --accent-ink: #0f1116; --keyline: rgba(125, 156, 255, .18); color-scheme: dark }
+* { box-sizing: border-box }
+body { background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 15px; line-height: 1.5;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 28px 64px }
+.wrap { max-width: 1240px; margin: 0 auto; display: grid; gap: 24px }
+header { display: grid; gap: 6px }
+h1 { font-family: var(--font-display); font-weight: 700; font-size: clamp(28px, 4vw, 40px); letter-spacing: -.02em; margin: 0; text-wrap: balance }
+.lede { color: var(--muted); margin: 0; max-width: 68ch }
+.stats { display: flex; flex-wrap: wrap; gap: 8px 20px; font-family: var(--font-mono); font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; margin-top: 6px }
+.stats b { color: var(--ink); font-weight: 500 }
+.bar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--bg); padding-block: 10px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; border-bottom: 1px solid var(--line) }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg) }
+.search { flex: 1 1 220px; min-width: 0; height: 38px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); color: var(--ink); padding: 0 12px; font: inherit }
+.search:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--panel) }
+.seg button { border: 0; background: none; color: var(--muted); font: 500 13px var(--font-body); padding: 0 12px; height: 36px; cursor: pointer }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--bg) }
+.label { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted) }
+.main { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 24px; align-items: start }
+@media (max-width: 860px) { .main { grid-template-columns: minmax(0, 1fr) } .detail { position: static !important } }
+.groups { display: grid; gap: 28px; min-width: 0 }
+section h2 { font-family: var(--font-display); font-size: 13px; font-weight: 500; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 0 0 10px; display: flex; gap: 8px }
+section h2 span { font-family: var(--font-mono); font-weight: 400 }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px }
+.tile { border: 1px solid var(--line); background: var(--tile); border-radius: 12px; aspect-ratio: 1 / .92; max-width: 100%; display: grid; grid-template-rows: 1fr auto; place-items: center; padding: 10px 6px 8px; cursor: pointer; color: var(--ink); font: inherit; position: relative }
+.tile:hover { background: var(--tile-hover) }
+.tile[aria-pressed="true"] { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) }
+.tile .n { font-family: var(--font-mono); font-size: 10.5px; color: var(--muted); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+.tile .dot { position: absolute; top: 7px; right: 8px; font-family: var(--font-mono); font-size: 9.5px; color: var(--muted); font-variant-numeric: tabular-nums }
+.glyph { position: relative; display: grid; place-items: center }
+.glyph svg { display: block }
+.keylines .glyph::before { content: ""; position: absolute; inset: 0; background:
+  linear-gradient(var(--keyline), var(--keyline)) center / calc(100% * 20 / 24) calc(100% * 20 / 24) no-repeat; outline: 1px dashed var(--keyline); border-radius: 1px }
+.detail { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 72px); background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 18px; display: grid; gap: 14px; min-width: 0 }
+.big { display: grid; grid-template-columns: 1fr 1fr; gap: 8px }
+.big div { border-radius: 12px; background: var(--bg); display: grid; place-items: center; aspect-ratio: 1; max-width: 100% }
+.big .ink { background: var(--ink); color: var(--bg) }
+.detail h3 { margin: 0; font-family: var(--font-mono); font-weight: 500; font-size: 17px; word-break: break-all }
+.meta { display: grid; gap: 6px; font-size: 13px }
+.meta div { display: grid; grid-template-columns: 70px 1fr; gap: 8px }
+.meta dt { color: var(--muted) } .meta dd { margin: 0 }
+.sizes { display: flex; gap: 14px; align-items: end }
+.sizes figure { margin: 0; display: grid; gap: 4px; justify-items: center; font-family: var(--font-mono); font-size: 10px; color: var(--muted) }
+.actions { display: grid; gap: 6px }
+.actions button { height: 34px; border-radius: 9px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); font: 500 13px var(--font-body); cursor: pointer; text-align: left; padding: 0 12px }
+.actions button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent) }
+code { font-family: var(--font-mono); font-size: 12px }
+.copied { font-size: 12px; color: var(--accent); min-height: 18px }
+.empty { color: var(--muted) }
+footer { color: var(--muted); font-size: 13px; max-width: 72ch; display: grid; gap: 8px; border-top: 1px solid var(--line); padding-top: 18px }
+footer p { margin: 0 }
+@media (prefers-reduced-motion: no-preference) { .tile { transition: background .12s } }
+</style>
+
+<div class="wrap">
+  <header>
+    <span class="label">House icon set</span>
+    <h1>House Icons</h1>
+    <p class="lede">The icons our apps and sites reach for most, drawn once on a 24px grid with a 1.5px stroke. Each comes in outline and fill, and ships as SVG, React, React Native, an iOS asset catalog and Android vector drawables.</p>
+    <div class="stats" id="stats"></div>
+  </header>
+
+  <div class="bar">
+    <input class="search" id="q" type="search" placeholder="Search icons, e.g. trash, timer, basket" aria-label="Search icons">
+    <div class="seg" role="group" aria-label="Variant">
+      <button type="button" id="v-outline" aria-pressed="true">Outline</button>
+      <button type="button" id="v-fill" aria-pressed="false">Fill</button>
+    </div>
+    <div class="seg" role="group" aria-label="Size" id="sizes"></div>
+    <div class="seg" role="group" aria-label="Order">
+      <button type="button" id="o-group" aria-pressed="true">By group</button>
+      <button type="button" id="o-rank" aria-pressed="false">By usage</button>
+    </div>
+    <div class="seg"><button type="button" id="keys" aria-pressed="false">Keylines</button></div>
+  </div>
+
+  <div class="main">
+    <div class="groups" id="groups"></div>
+    <aside class="detail" id="detail" aria-live="polite"></aside>
+  </div>
+
+  <footer>
+    <p>Usage numbers come from a scan of every icon reference (SF Symbols, Material, Lucide, Hugeicons) across 14 of our repos on 16 October 2026. "Apps" counts distinct products that use the concept; Cooked counts the archived recipes.im code too.</p>
+    <p>Source, generator and outputs live in <code>johnkueh/flare</code> under <code>icons/</code>. Edit <code>icons/source/icons.py</code> and run <code>python3 icons/source/build.py</code>.</p>
+  </footer>
+</div>
+
+<script>
+const ICONS = /*ICONS*/[];
+const state = { variant: 'outline', size: 24, order: 'group', q: '', sel: ICONS[0]?.name };
+const pascal = n => n.split('-').map(p => p[0].toUpperCase() + p.slice(1)).join('');
+const camel = n => { const p = pascal(n); return p[0].toLowerCase() + p.slice(1) };
+const svg = (d, s) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="${d}"/></svg>`;
+const byName = Object.fromEntries(ICONS.map(i => [i.name, i]));
+const apps = new Set(ICONS.flatMap(i => i.apps || []));
+
+document.getElementById('stats').innerHTML =
+  `<span><b>${ICONS.length}</b> icons</span><span><b>${ICONS.length * 2}</b> glyphs</span><span><b>24</b>px grid, <b>2</b>px margin</span><span><b>1.5</b>px stroke</span><span><b>${apps.size}</b> apps and sites surveyed</span>`;
+
+const sizesEl = document.getElementById('sizes');
+for (const s of [16, 20, 24, 32]) {
+  const b = document.createElement('button'); b.type = 'button'; b.textContent = s; b.id = 's-' + s;
+  b.onclick = () => { state.size = s; render() }; sizesEl.append(b);
+}
+const press = (id, on) => document.getElementById(id).setAttribute('aria-pressed', on);
+document.getElementById('v-outline').onclick = () => { state.variant = 'outline'; render() };
+document.getElementById('v-fill').onclick = () => { state.variant = 'fill'; render() };
+document.getElementById('o-group').onclick = () => { state.order = 'group'; render() };
+document.getElementById('o-rank').onclick = () => { state.order = 'rank'; render() };
+document.getElementById('keys').onclick = e => { const on = e.currentTarget.getAttribute('aria-pressed') !== 'true'; e.currentTarget.setAttribute('aria-pressed', on); document.body.classList.toggle('keylines', on) };
+document.getElementById('q').oninput = e => { state.q = e.target.value.trim().toLowerCase(); render() };
+
+function tile(i) {
+  const b = document.createElement('button');
+  b.type = 'button'; b.className = 'tile'; b.setAttribute('aria-pressed', i.name === state.sel); b.title = i.name;
+  b.innerHTML = `${i.rank ? `<span class="dot">#${i.rank}</span>` : ''}<span class="glyph">${svg(i[state.variant], state.size * 1.5)}</span><span class="n">${i.name}</span>`;
+  b.onclick = () => { state.sel = i.name; render() };
+  return b;
+}
+
+function render() {
+  press('v-outline', state.variant === 'outline'); press('v-fill', state.variant === 'fill');
+  press('o-group', state.order === 'group'); press('o-rank', state.order === 'rank');
+  for (const s of [16, 20, 24, 32]) press('s-' + s, state.size === s);
+  const match = i => !state.q || i.name.includes(state.q) || (i.group || '').toLowerCase().includes(state.q);
+  const list = ICONS.filter(match);
+  const root = document.getElementById('groups'); root.replaceChildren();
+  const sections = state.order === 'group'
+    ? [...new Set(list.map(i => i.group))].map(g => [g, list.filter(i => i.group === g)])
+    : [['Most used first', [...list].sort((a, b) => (a.rank || 999) - (b.rank || 999))]];
+  if (!list.length) { root.innerHTML = `<p class="empty">No icon matches "${state.q}". Try a plainer word, like edit or time.</p>` }
+  for (const [g, items] of sections) {
+    const s = document.createElement('section');
+    s.innerHTML = `<h2>${g} <span>${items.length}</span></h2>`;
+    const grid = document.createElement('div'); grid.className = 'grid';
+    items.forEach(i => grid.append(tile(i)));
+    s.append(grid); root.append(s);
+  }
+  detail();
+}
+
+function copy(text, msg) {
+  const out = document.getElementById('copied');
+  navigator.clipboard.writeText(text).then(() => { out.textContent = msg }, () => { out.textContent = 'Copy is blocked here. The text is in the box below.'; const pre = document.getElementById('fallback'); pre.hidden = false; pre.textContent = text });
+}
+
+function detail() {
+  const i = byName[state.sel]; const el = document.getElementById('detail');
+  if (!i) { el.innerHTML = ''; return }
+  const appsLine = i.apps?.length ? i.apps.join(', ') : 'Picked as a general-purpose basic';
+  el.innerHTML = `
+    <div class="big"><div>${svg(i.outline, 72)}</div><div class="ink">${svg(i.fill, 72)}</div></div>
+    <h3>${i.name}</h3>
+    <dl class="meta">
+      <div><dt>Group</dt><dd>${i.group}</dd></div>
+      <div><dt>Usage</dt><dd>${i.rank ? `#${i.rank} · ${i.uses} references` : 'Not in the scan'}</dd></div>
+      <div><dt>Apps</dt><dd>${appsLine}</dd></div>
+    </dl>
+    <div class="sizes">${[16, 20, 24, 32].map(s => `<figure>${svg(i[state.variant], s)}<figcaption>${s}</figcaption></figure>`).join('')}</div>
+    <div class="actions">
+      <button type="button" class="primary" id="c-svg">Copy ${state.variant} SVG</button>
+      <button type="button" id="c-react">Copy React: <code>&lt;${pascal(i.name)}Icon /&gt;</code></button>
+      <button type="button" id="c-swift">Copy Swift: <code>.${camel(i.name)}</code></button>
+      <button type="button" id="c-android">Copy Android: <code>house_${i.name.replaceAll('-', '_')}</code></button>
+    </div>
+    <div class="copied" id="copied"></div>
+    <pre id="fallback" hidden style="white-space:pre-wrap;word-break:break-all;font:11px var(--font-mono);margin:0"></pre>`;
+  const variantArg = state.variant === 'fill';
+  document.getElementById('c-svg').onclick = () => copy(`<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="${i[state.variant]}"/></svg>`, 'SVG copied');
+  document.getElementById('c-react').onclick = () => copy(`<${pascal(i.name)}Icon${variantArg ? ' variant="fill"' : ''} />`, 'React snippet copied');
+  document.getElementById('c-swift').onclick = () => copy(`HouseIcon.${camel(i.name)}.image(${variantArg ? '.fill' : ''})`, 'Swift snippet copied');
+  document.getElementById('c-android').onclick = () => copy(`R.drawable.house_${i.name.replaceAll('-', '_')}${variantArg ? '_fill' : ''}`, 'Android resource copied');
+}
+render();
+</script>
