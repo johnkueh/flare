@@ -1,0 +1,21 @@
+[package]
+name = "flare-flags"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+description = "Feature flags on Cloudflare Flagship: one flags.json, values cached on disk, refreshed through your Worker. No networking of its own unless the `http` feature is on (for CLIs)."
+
+[lib]
+name = "flare_flags"
+
+[features]
+# A blocking `refresh` over HTTP (ureq), for command-line tools and servers.
+# The phone apps do their own HTTP (URLSession, OkHttp) and don't enable it.
+http = ["dep:ureq"]
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+getrandom = { workspace = true }
+ureq = { version = "3", default-features = false, features = ["rustls"], optional = true }

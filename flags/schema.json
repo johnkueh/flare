@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flare.jkyf.dev/flags.schema.json",
+  "title": "Flare flags.json",
+  "description": "An app's feature flags. Each key matches a flag in the app's Cloudflare Flagship app; its type comes from its default.",
+  "type": "object",
+  "required": ["flags"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "flags": {
+      "type": "object",
+      "propertyNames": { "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,63}$" },
+      "additionalProperties": {
+        "type": "object",
+        "required": ["default"],
+        "properties": {
+          "default": {
+            "description": "The value until the server says otherwise, and whenever it can't (offline, flag missing). Pick the safe one.",
+            "type": ["boolean", "number", "string", "object", "array"]
+          },
+          "live": {
+            "description": "Change at once, even on screen (kill switches). Otherwise a flag the app has read keeps its value until the app next comes to the foreground.",
+            "type": "boolean",
+            "default": false
+          },
+          "description": { "type": "string" },
+          "type": {
+            "description": "Only needed to make a whole-number default a fractional number.",
+            "enum": ["boolean", "integer", "number", "string", "object"]
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

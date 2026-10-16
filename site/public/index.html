@@ -4,9 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Flare: your apps' backend, on Cloudflare</title>
-<meta name="description" content="Offline-first sync, auth and analytics for iOS, Android and web, from one Rust core and your own Cloudflare Worker.">
+<meta name="description" content="Offline-first sync, auth, feature flags and analytics for iOS, Android and web, from one Rust core and your own Cloudflare Worker.">
 <meta property="og:title" content="Flare: your apps' backend, on Cloudflare">
-<meta property="og:description" content="Offline-first sync, auth and analytics for iOS, Android and web, from one Rust core and your own Cloudflare Worker.">
+<meta property="og:description" content="Offline-first sync, auth, feature flags and analytics for iOS, Android and web, from one Rust core and your own Cloudflare Worker.">
 <meta property="og:image" content="https://flare.jkyf.dev/og.png">
 <meta property="og:url" content="https://flare.jkyf.dev">
 <meta name="twitter:card" content="summary_large_image">
@@ -69,7 +69,7 @@ section{padding:70px 0}
 .head{max-width:640px;margin-bottom:36px}
 .head h2{font-size:clamp(32px,4.5vw,48px)}
 .head p{color:var(--muted);font-size:18px;margin:14px 0 0}
-.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:22px}
+.cards{display:grid;grid-template-columns:repeat(2,1fr);gap:22px}
 .card{background:var(--card);border:2px solid var(--ink);border-radius:16px;box-shadow:4px 4px 0 var(--ink);padding:24px;display:flex;flex-direction:column}
 .card img{width:96px;height:64px;margin-bottom:18px}
 .card h3{font-size:26px;margin-bottom:8px}
@@ -160,7 +160,7 @@ footer a:hover{color:var(--ink)}
         <a class="btn ghost" href="#add">Add it to an app</a>
       </div>
       <div class="install">
-        <code id="install">pnpm add "@sync/server@github:johnkueh/flare#0.2.0&amp;path:/server"</code>
+        <code id="install">pnpm add "@sync/server@github:johnkueh/flare#0.4.0&amp;path:/server"</code>
         <button class="copy" type="button" data-copy="install">Copy</button>
       </div>
     </div>
@@ -170,9 +170,9 @@ footer a:hover{color:var(--ink)}
   <section id="pieces" class="band">
     <div class="wrap">
       <div class="head">
-        <p class="eyebrow">Three pieces</p>
+        <p class="eyebrow">Four pieces</p>
         <h2>Everything an app needs from a server.</h2>
-        <p>Use one or all three. Each is a package you add to your own Worker, with a small Swift and Kotlin side.</p>
+        <p>Use one or all four. Each is a package you add to your own Worker, with a small Swift and Kotlin side.</p>
       </div>
       <div class="cards">
         <article class="card">
@@ -196,6 +196,17 @@ footer a:hover{color:var(--ink)}
             <li>Apple and email codes; cookies for the web</li>
           </ul>
           <a class="more" href="https://github.com/johnkueh/flare/blob/main/AUTH.md">Read AUTH.md →</a>
+        </article>
+        <article class="card">
+          <img class="pixel" src="/art/flags.svg" alt="">
+          <h3>Flags</h3>
+          <p>List your flags in one JSON file. Cloudflare Flagship serves them, and every platform reads them as typed properties, generated on each build.</p>
+          <ul>
+            <li>iOS, Android, web, Node and Rust</li>
+            <li>Works offline; screens don't change mid-use</li>
+            <li>Live kill switches, rollouts per user</li>
+          </ul>
+          <a class="more" href="https://github.com/johnkueh/flare/blob/main/FLAGS.md">Read FLAGS.md →</a>
         </article>
         <article class="card">
           <img class="pixel" src="/art/analytics.svg" alt="">
@@ -251,12 +262,14 @@ footer a:hover{color:var(--ink)}
         <button class="tab" role="tab" aria-selected="true" aria-controls="p-worker" id="t-worker" type="button">Worker</button>
         <button class="tab" role="tab" aria-selected="false" aria-controls="p-ios" id="t-ios" type="button">iOS</button>
         <button class="tab" role="tab" aria-selected="false" aria-controls="p-android" id="t-android" type="button">Android</button>
+        <button class="tab" role="tab" aria-selected="false" aria-controls="p-flags" id="t-flags" type="button">Flags</button>
         <button class="tab" role="tab" aria-selected="false" aria-controls="p-analytics" id="t-analytics" type="button">Analytics</button>
       </div>
       <div class="panel" role="tabpanel" id="p-worker" aria-labelledby="t-worker">
-<pre><span class="c"># Sync, and accounts if you want them</span>
-pnpm add <span class="s">"@sync/server@github:johnkueh/flare#0.2.0&amp;path:/server"</span>
-pnpm add <span class="s">"@flare/auth@github:johnkueh/flare#0.2.0&amp;path:/auth"</span>
+<pre><span class="c"># Sync, plus accounts and flags if you want them</span>
+pnpm add <span class="s">"@sync/server@github:johnkueh/flare#0.4.0&amp;path:/server"</span>
+pnpm add <span class="s">"@flare/auth@github:johnkueh/flare#0.4.0&amp;path:/auth"</span>
+pnpm add <span class="s">"@flare/flags@github:johnkueh/flare#0.4.0&amp;path:/flags"</span>
 
 <span class="c">// src/index.ts</span>
 <span class="k">export</span> { SpaceObject } <span class="k">from</span> <span class="s">"@sync/server/space"</span>;</pre>
@@ -276,12 +289,29 @@ maven(<span class="s">"https://jitpack.io"</span>)
 maven(<span class="s">"https://pub-796846793f3e431ab3a92e0577c57dde.r2.dev/maven"</span>)
 
 <span class="c">// app/build.gradle.kts</span>
-implementation(<span class="s">"com.github.johnkueh:flare:0.2.0"</span>)</pre>
+implementation(<span class="s">"com.github.johnkueh:flare:0.4.0"</span>)</pre>
         <p>Then the same calls as iOS, in Kotlin. <a href="https://github.com/johnkueh/flare/blob/main/SYNC.md">Full setup →</a></p>
+      </div>
+      <div class="panel" role="tabpanel" id="p-flags" aria-labelledby="t-flags" hidden>
+<pre><span class="c">// flags.json, shared by the Worker and the apps</span>
+{ <span class="s">"flags"</span>: { <span class="s">"new-checkout"</span>: { <span class="s">"default"</span>: <span class="k">false</span> } } }
+
+<span class="c">// Worker</span>
+<span class="k">const</span> res = <span class="k">await</span> flagsHttp(request, { binding: env.FLAGS, flags });
+
+<span class="c">// Swift, with the FlareFlags build plugin</span>
+<span class="k">if</span> flags.newCheckout { … }
+
+<span class="c">// Kotlin, with flare-flags.gradle</span>
+<span class="k">if</span> (flags.newCheckout) { … }
+
+<span class="c">// Web, Node and CLIs</span>
+<span class="k">if</span> (flags.get(<span class="s">"new-checkout"</span>)) { … }</pre>
+        <p>Add a flag to the JSON, run <code>flare-flags sync</code>, build. No codegen step, no Mac needed. <a href="https://github.com/johnkueh/flare/blob/main/FLAGS.md">Full setup →</a></p>
       </div>
       <div class="panel" role="tabpanel" id="p-analytics" aria-labelledby="t-analytics" hidden>
 <pre><span class="c"># your-core/Cargo.toml</span>
-telemetry-sdk = { git = <span class="s">"https://github.com/johnkueh/flare"</span>, branch = <span class="s">"main"</span>, features = [<span class="s">"uniffi"</span>] }
+telemetry-sdk = { git = <span class="s">"https://github.com/johnkueh/flare"</span>, tag = <span class="s">"0.4.0"</span>, features = [<span class="s">"uniffi"</span>] }
 
 <span class="c">// Swift</span>
 <span class="k">let</span> client = <span class="k">try</span> TelemetryClient(config: config)

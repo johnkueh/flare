@@ -1,0 +1,9 @@
+{
+  "flags": {
+    "new-checkout": { "default": false, "description": "The redesigned checkout" },
+    "upload-limit": { "default": 10 },
+    "checkout-copy": { "default": "Buy now" },
+    "paywall": { "default": { "price": "4.99", "trialDays": 7 } },
+    "kill-import": { "default": false, "live": true }
+  }
+}

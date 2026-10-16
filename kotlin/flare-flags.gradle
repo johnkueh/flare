@@ -1,0 +1,128 @@
+// Generates a typed Kotlin property per flag in the app's flags.json, on
+// every build, so a new flag needs no step of its own. In the app module's
+// build.gradle.kts, after the android { } block:
+//
+//   apply(from = "https://raw.githubusercontent.com/johnkueh/flare/<tag>/kotlin/flare-flags.gradle")
+//
+// It finds flags.json in the module or up to four folders above it; set
+// `flareFlagsFile` (a path) in gradle.properties or with extra["flareFlagsFile"]
+// to point elsewhere. The code goes in the module's namespace (or
+// `flareFlagsPackage`), so `flags.newCheckout` needs no import there.
+//
+// The rules match crates/flags (the Rust core) and flags/src/schema.ts.
+
+import groovy.json.JsonSlurper
+
+def findFlagsFile = {
+    if (project.hasProperty('flareFlagsFile')) return project.file(project.property('flareFlagsFile'))
+    File dir = project.projectDir
+    for (int i = 0; i < 5 && dir != null; i++) {
+        File f = new File(dir, 'flags.json')
+        if (f.exists()) return f
+        dir = dir.parentFile
+    }
+    return null
+}
+
+File flagsFile = findFlagsFile()
+if (flagsFile == null) {
+    throw new GradleException("flare-flags: no flags.json in ${project.projectDir} or the folders above it. " +
+        'Add one: {"flags": {"new-checkout": {"default": false}}}')
+}
+def outDir = project.layout.buildDirectory.dir('generated/source/flareFlags')
+
+def generate = project.tasks.register('generateFlareFlags') {
+    group = 'build'
+    description = "Generates typed flag properties from ${flagsFile.name}."
+    inputs.file(flagsFile).withPropertyName('flags')
+    inputs.property('package', project.provider { project.findProperty('flareFlagsPackage') ?: project.android.namespace })
+    outputs.dir(outDir)
+    doLast {
+        String pkg = inputs.properties['package']
+        String text = flagsFile.getText('UTF-8').trim()
+        def root
+        try {
+            root = new JsonSlurper().parseText(text)
+        } catch (e) {
+            throw new GradleException("${flagsFile}: not JSON: ${e.message}")
+        }
+        if (!(root instanceof Map) || !(root.flags instanceof Map)) throw new GradleException("${flagsFile}: expected {\"flags\": {...}}")
+
+        def keywords = ['as', 'break', 'class', 'continue', 'do', 'else', 'false', 'for', 'fun', 'if', 'in', 'interface',
+                        'is', 'null', 'object', 'package', 'return', 'super', 'this', 'throw', 'true', 'try', 'typealias',
+                        'typeof', 'val', 'var', 'when', 'while'] as Set
+        // Flags' own members, which a flag can't shadow.
+        def taken = ['bool', 'int', 'double', 'string', 'json', 'snapshot', 'identity', 'changes', 'refresh', 'activate',
+                     'setUser', 'fetchedAt', 'lastError', 'revision', 'flow', 'close', 'start'] as Set
+        def names = [:]
+        def props = []
+        root.flags.keySet().sort().each { String key ->
+            if (!(key ==~ /[A-Za-z][A-Za-z0-9_-]{0,63}/)) {
+                throw new GradleException("${flagsFile}: \"${key}\": keys start with a letter and use letters, digits, - and _ (64 at most)")
+            }
+            def d = root.flags[key]
+            if (!(d instanceof Map) || !d.containsKey('default')) throw new GradleException("${flagsFile}: ${key}: needs a \"default\"")
+            def v = d['default']
+            String inferred
+            if (v instanceof Boolean) inferred = 'boolean'
+            else if (v instanceof Integer || v instanceof Long || v instanceof BigInteger) inferred = 'integer'
+            else if (v instanceof Number) inferred = 'number'
+            else if (v instanceof String) inferred = 'string'
+            else if (v instanceof Map || v instanceof List) inferred = 'object'
+            else throw new GradleException("${flagsFile}: ${key}: the default can't be null")
+            String kind = d['type'] ?: inferred
+            if (!(kind in ['boolean', 'integer', 'number', 'string', 'object'])) throw new GradleException("${flagsFile}: ${key}: unknown type \"${kind}\"")
+            boolean fits = kind == inferred || (kind == 'number' && inferred == 'integer') ||
+                (kind == 'integer' && inferred == 'number' && v.toBigDecimal().stripTrailingZeros().scale() <= 0)
+            if (!fits) throw new GradleException("${flagsFile}: ${key}: the default doesn't match its type")
+
+            def parts = key.split(/[-_]/)
+            String name = parts[0].substring(0, 1).toLowerCase() + parts[0].substring(1) +
+                (parts.length > 1 ? parts[1..-1].collect { it.capitalize() }.join('') : '')
+            if (name in taken || name in keywords) name += 'Flag'
+            if (names[name]) throw new GradleException("${flagsFile}: \"${key}\" and \"${names[name]}\" both become ${name}")
+            names[name] = key
+
+            def types = [boolean: ['Boolean', 'bool'], integer: ['Int', 'int'], number: ['Double', 'double'],
+                         string: ['String', 'string'], object: ['FlagJson', 'json']]
+            def (type, getter) = types[kind]
+            def doc = []
+            if (d['description']) doc += d['description'].toString().readLines()
+            doc << "`${key}`. Default: `${groovy.json.JsonOutput.toJson(v)}`.${d['live'] == true ? ' Live: changes at once.' : ''}"
+            props << "/**\n${doc.collect { ' * ' + it.replace('*/', '*&#47;') }.join('\n')}\n */\nval Flags.${name}: ${type} get() = ${getter}(\"${key}\")"
+        }
+
+        String literal = text.replace('\\', '\\\\').replace('"', '\\"').replace('$', '\\$').replace('\r', '').replace('\n', '\\n')
+        File dir = outDir.get().asFile
+        dir.deleteDir()
+        File out = new File(dir, pkg.replace('.', '/') + '/FlareFlags.kt')
+        out.parentFile.mkdirs()
+        out.text = """// Generated by Flare's flare-flags.gradle from ${flagsFile.name}.
+// Edit flags.json, not this file: it's written again on every build.
+@file:Suppress("unused")
+
+package ${pkg}
+
+import android.content.Context
+import com.johnkueh.sync.client.FlagJson
+import com.johnkueh.sync.client.Flags
+
+${props.join('\n\n')}
+
+/** flags.json, as this app was built with it. */
+const val FLARE_FLAGS_JSON: String = "${literal}"
+
+/** This app's flags: values from the last run straight away, fresh ones
+ *  from [server] (the Worker answering /ofrep/v1/evaluate/flags). */
+fun Flags.Companion.start(
+    context: Context,
+    server: String,
+    user: String? = null,
+    options: Flags.Options = Flags.Options(),
+): Flags = Flags(context, server, FLARE_FLAGS_JSON, user, options)
+"""
+    }
+}
+
+project.android.sourceSets.main.java.srcDir(outDir)
+project.tasks.named('preBuild').configure { dependsOn(generate) }

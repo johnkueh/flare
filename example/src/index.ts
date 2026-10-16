@@ -6,9 +6,11 @@
 //   /v1/auth/*                  Better Auth: anonymous, email code, Apple
 //   /v1/spaces/...              PROTOCOL.md's calls, as the signed-in user
 //   /v1/spaces/{id}/docs/{c}    the web page's reads and writes (as SyncGateway does)
+//   /ofrep/v1/evaluate/flags    feature flags from flags.json (@flare/flags)
 //   /dev/outbox                 the last email code sent (DEV_OUTBOX only)
 
 import { authenticate, type FlareAuthEnv, flareAuth, whoIs } from "@flare/auth";
+import { type FlagshipBinding, flagsHttp } from "@flare/flags/server";
 import { foldDocs, stampWrites, type Write } from "@sync/server/docs";
 import { nodeId } from "@sync/server/gateway";
 import { spaceHttp } from "@sync/server/http";
@@ -27,6 +29,7 @@ import {
   type SpacesEnv,
 } from "@sync/server/spaces";
 import type { Platform, Result } from "@sync/server/space";
+import flags from "../flags.json";
 
 export { SpaceObject } from "@sync/server/space";
 export { SyncGateway } from "@sync/server/gateway";
@@ -34,6 +37,8 @@ export { SyncGateway } from "@sync/server/gateway";
 export interface Env extends FlareAuthEnv, SpacesEnv {
   SPACE_FILES: R2Bucket;
   ASSETS: Fetcher;
+  /** Cloudflare Flagship: the flags in flags.json. */
+  FLAGS: FlagshipBinding;
   /** "true": email codes go to /dev/outbox instead of an inbox. */
   DEV_OUTBOX?: string;
   /** Sends email codes through Resend when set. */
@@ -56,6 +61,18 @@ export default {
     });
 
     if (url.pathname.startsWith("/v1/auth/")) return auth.handler(request);
+
+    // Flags for whoever asks: the signed-in user when there is one, else the
+    // id the app or page sent (a random one per install).
+    const flagged = flagsHttp(request, {
+      binding: env.FLAGS,
+      flags,
+      context: async ({ request, defaults }) => ({
+        ...defaults,
+        targetingKey: (await whoIs(auth, request.headers))?.userId ?? defaults.targetingKey,
+      }),
+    });
+    if (flagged) return flagged;
     if (url.pathname === "/dev/outbox") return outbox(env, url);
 
     const files = spaceHttp(request, env, { prefix: "/v1", authenticate: (r) => authenticate(auth, r) });

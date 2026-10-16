@@ -1,0 +1,13 @@
+{
+  // `pnpm build`: plain JS and .d.ts in dist/, checked in, so Node, a CLI
+  // or any bundler can use the package straight from GitHub.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "outDir": "dist",
+    "rootDir": "src",
+    "declaration": true,
+    "rewriteRelativeImportExtensions": true
+  },
+  "exclude": ["src/*.test.ts"]
+}

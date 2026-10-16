@@ -13,6 +13,8 @@ struct HomeView: View {
     var body: some View {
         NavigationStack(path: $path) {
             Form {
+                FlagNotes()
+
                 Section("Your lists") {
                     if app.lists.isEmpty {
                         Text("No lists yet.").foregroundStyle(.secondary)
@@ -111,6 +113,31 @@ struct HomeView: View {
                 Text("Account")
             } footer: {
                 Text("You're signed in anonymously on this phone. Sign in with an email code to keep your lists on an account and open them anywhere.")
+            }
+        }
+    }
+}
+
+/// What the flags say across the top of a screen: the banner and the
+/// read-only kill switch.
+struct FlagNotes: View {
+    @Environment(AppModel.self) private var app
+
+    var body: some View {
+        if !app.flags.banner.isEmpty {
+            Section {
+                Text(app.flags.banner)
+                    .font(.headline)
+                    .foregroundStyle(.white)
+                    .listRowBackground(Color.orange)
+                    .accessibilityIdentifier("banner")
+            }
+        }
+        if app.flags.readOnly {
+            Section {
+                Label("Lists are read-only for a moment. Back soon.", systemImage: "lock")
+                    .foregroundStyle(.secondary)
+                    .accessibilityIdentifier("read-only")
             }
         }
     }

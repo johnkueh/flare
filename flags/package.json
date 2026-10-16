@@ -1,0 +1,39 @@
+{
+  "name": "@flare/flags",
+  "private": true,
+  "type": "module",
+  "description": "Feature flags for apps on Flare, served by Cloudflare Flagship: the Worker endpoint and a typed client for web pages, Node and command-line tools. Workers install it from GitHub (see FLAGS.md).",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./server": {
+      "types": "./dist/server.d.ts",
+      "default": "./dist/server.js"
+    },
+    "./node": {
+      "types": "./dist/node.d.ts",
+      "default": "./dist/node.js"
+    },
+    "./schema.json": "./schema.json"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "test": "node --test --experimental-strip-types src/*.test.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20261014.1",
+    "@types/node": "^22",
+    "typescript": "^5.9.3"
+  },
+  "bin": {
+    "flare-flags": "./bin/flare-flags.mjs"
+  },
+  "files": [
+    "dist",
+    "bin",
+    "schema.json"
+  ]
+}
