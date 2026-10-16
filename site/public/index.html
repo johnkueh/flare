@@ -248,6 +248,10 @@ footer a:hover{color:var(--ink)}
         <img class="pixel" src="/art/sync.svg" alt="" style="width:36px;height:24px">
         <div><b>Merges like Figma and Linear.</b> Not a text CRDT like Yjs: each field keeps its newest edit, lists use fractional positions, and folders can't loop. It's the model Figma and Linear use for their data, with one change: edits are ordered by a clock on the phone, so a change made offline keeps its place. <a href="https://github.com/johnkueh/flare/blob/main/SYNC.md#why-not-yjs">How it works →</a></div>
       </div>
+      <div class="mozilla">
+        <img class="pixel" src="/art/flags.svg" alt="" style="width:36px;height:24px">
+        <div><b>Flags like LaunchDarkly and Statsig.</b> Each user is evaluated by a stable key, so a 10% rollout keeps the same people, as in LaunchDarkly. Like Statsig's mobile SDKs, the app starts with the values it last saw, and a flag a screen has read doesn't change under the user. The difference: the rules live in Cloudflare Flagship behind your own Worker, and it speaks OpenFeature's OFREP. <a href="https://github.com/johnkueh/flare/blob/main/FLAGS.md#how-values-behave">How it works →</a></div>
+      </div>
     </div>
   </section>
 
