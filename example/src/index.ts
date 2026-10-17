@@ -1,5 +1,6 @@
 // A shared grocery list on Flare. One Worker serves the whole backend: auth
-// (@flare/auth), the spaces (@sync/server) and a web page (public/). It's
+// (@flare/auth), the spaces (@sync/server), push notifications
+// (@flare/push) and a web page (public/). It's
 // the smallest app that uses every piece, and what the end-to-end tests
 // drive.
 //
@@ -7,10 +8,13 @@
 //   /v1/spaces/...              PROTOCOL.md's calls, as the signed-in user
 //   /v1/spaces/{id}/docs/{c}    the web page's reads and writes (as SyncGateway does)
 //   /ofrep/v1/evaluate/flags    feature flags from flags.json (@flare/flags)
+//   /v1/push/device             this phone's push token (@flare/push)
 //   /dev/outbox                 the last email code sent (DEV_OUTBOX only)
 
 import { authenticate, type FlareAuthEnv, flareAuth, whoIs } from "@flare/auth";
 import { type FlagshipBinding, flagsHttp } from "@flare/flags/server";
+import { type FlarePush, flarePush, type PushEnv, type PushMessage, relinkPushMember } from "@flare/push";
+import { notifySpace } from "@flare/push/spaces";
 import { foldDocs, stampWrites, type Write } from "@sync/server/docs";
 import { nodeId } from "@sync/server/gateway";
 import { spaceHttp } from "@sync/server/http";
@@ -30,11 +34,12 @@ import {
 } from "@sync/server/spaces";
 import type { Platform, Result } from "@sync/server/space";
 import flags from "../flags.json";
+import notifications from "../notifications.json";
 
 export { SpaceObject } from "@sync/server/space";
 export { SyncGateway } from "@sync/server/gateway";
 
-export interface Env extends FlareAuthEnv, SpacesEnv {
+export interface Env extends FlareAuthEnv, SpacesEnv, PushEnv {
   SPACE_FILES: R2Bucket;
   ASSETS: Fetcher;
   /** Cloudflare Flagship: the flags in flags.json. */
@@ -55,6 +60,7 @@ export default {
     const auth = flareAuth(env, {
       onLinkAccount: async ({ anonymousUserId, userId }) => {
         await relinkMember(env, anonymousUserId, userId);
+        await relinkPushMember(env, anonymousUserId, userId);
       },
       sendEmailCode: async (email, code) => ctx.waitUntil(sendCode(env, email, code)),
       ...(env.APPLE_BUNDLE_ID && { apple: { appBundleIdentifier: env.APPLE_BUNDLE_ID } }),
@@ -75,20 +81,65 @@ export default {
     if (flagged) return flagged;
     if (url.pathname === "/dev/outbox") return outbox(env, url);
 
+    const push = flarePush(env, {
+      notifications,
+      identify: async (r) => {
+        const who = await whoIs(auth, r.headers);
+        if (!who) return Response.json({ code: "ATTESTATION_REQUIRED", message: "Sign in again." }, { status: 401 });
+        return { device: who.deviceId, member: who.userId };
+      },
+    });
+    const pushed = push.http(request);
+    if (pushed) return pushed;
+
     const files = spaceHttp(request, env, { prefix: "/v1", authenticate: (r) => authenticate(auth, r) });
     if (files) return files;
     if (!url.pathname.startsWith("/v1/")) return env.ASSETS.fetch(request);
 
     const who = await whoIs(auth, request.headers);
     if (!who) return Response.json({ code: "ATTESTATION_REQUIRED", message: "Sign in again." }, { status: 401 });
-    return route(request, env, url, who);
+    return route(request, env, url, who, (spaceId, names) => ctx.waitUntil(notifyAdded(env, push, spaceId, who, request, names)));
+  },
+
+  // Push notifications queued by notify(), sent to APNs and FCM.
+  async queue(batch, env) {
+    await flarePush(env, { notifications }).queue(batch as MessageBatch<PushMessage>);
   },
 } satisfies ExportedHandler<Env>;
+
+/** Tells the list's other members what was just added. */
+async function notifyAdded(env: Env, push: FlarePush<typeof notifications>, spaceId: string, who: Who, request: Request, names: string[]) {
+  if (names.length === 0) return;
+  const info = await spaceInfo(env, spaceId, who.userId);
+  const list = info.ok ? info.info.name : "Groceries";
+  const item = names.length === 1 ? names[0] : `${names.length} items`;
+  await notifySpace(env, push, spaceId, { from: who.userId, except: who.deviceId }, "item_added", {
+    list,
+    actor: deviceName(request),
+    item,
+  });
+}
+
+/** The item names a batch of writes or ops sets (new items and renames). */
+function addedNames(changes: unknown[]): string[] {
+  const names = new Set<string>();
+  for (const c of changes) {
+    const op = c as { c?: unknown; f?: unknown; v?: unknown };
+    if ((op.c === undefined || op.c === "groceries") && op.f === "name" && typeof op.v === "string" && op.v.trim()) names.add(op.v.trim());
+  }
+  return [...names];
+}
 
 type Who = { userId: string; deviceId: string };
 
 /** The JSON calls. The member is the user; the device is listed under them. */
-async function route(request: Request, env: Env, url: URL, who: Who): Promise<Response> {
+async function route(
+  request: Request,
+  env: Env,
+  url: URL,
+  who: Who,
+  added: (spaceId: string, names: string[]) => void,
+): Promise<Response> {
   const body: Record<string, unknown> =
     request.method === "POST" ? await request.json<Record<string, unknown>>().catch(() => ({})) : {};
   const path = url.pathname.slice("/v1".length);
@@ -133,7 +184,10 @@ async function route(request: Request, env: Env, url: URL, who: Who): Promise<Re
   }
   if (request.method === "POST" && rest === "/code/reset") return reply(await resetCode(env, spaceId, who.userId));
   if (request.method === "POST" && rest === "/push") {
-    return reply(await pushOps(env, spaceId, who.userId, Array.isArray(body.ops) ? body.ops : []));
+    const ops = Array.isArray(body.ops) ? body.ops : [];
+    const result = await pushOps(env, spaceId, who.userId, ops);
+    if (result.ok) added(spaceId, addedNames(ops));
+    return reply(result);
   }
   if (request.method === "GET" && rest === "/changes") {
     const since = Number(url.searchParams.get("since") ?? 0);
@@ -163,7 +217,9 @@ async function route(request: Request, env: Env, url: URL, who: Who): Promise<Re
     if (request.method === "POST") {
       const writes = (Array.isArray(body.writes) ? body.writes : []) as Write[];
       const ops = stampWrites(writes.map((w) => ({ ...w, c: docs[1] })), await nodeId(who.deviceId), Date.now());
-      return reply(await space.push(who.userId, ops));
+      const result = await space.push(who.userId, ops);
+      if (result.ok) added(spaceId, addedNames(ops));
+      return reply(result);
     }
   }
   return Response.json({ code: "NOT_FOUND" }, { status: 404 });

@@ -1,0 +1,15 @@
+{
+  "$schema": "../push/schema.json",
+  "channels": {
+    "list": { "name": "List changes", "description": "When someone else adds to a list you share" }
+  },
+  "notifications": {
+    "item_added": {
+      "title": "{{list}}",
+      "body": "{{actor}} added {{item}}",
+      "collapse": true,
+      "channel": "list",
+      "description": "Someone else added an item to a shared list"
+    }
+  }
+}
