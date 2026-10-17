@@ -137,12 +137,25 @@ def icon_flags():
     body += f'<rect x="20" y="9" width="3" height="4" fill="{PAL["O"]}"/>'
     return svg(24, 16, body, "A flag and a switch")
 
+BELL = [
+    "....DD", "...DOOD", "..DOOOOD", ".DOYOOOOD", ".DOYOOOOD", ".DOYOOOOD",
+    ".DOOOOOOD", "DOOOOOOOOD", "DDDDDDDDDD", "....RR",
+]
+
+def icon_push():
+    # A bell ringing, with a badge.
+    body = rects(BELL, 7, 4) + rects([".R.", "RYR", ".R."], 15, 1)
+    for k, (x, y) in enumerate([(4, 6), (3, 7), (4, 8), (19, 6), (20, 7), (19, 8)]):
+        body += f'<rect x="{x}" y="{y}" width="1" height="1" fill="{PAL["O"]}" class="dot" style="--i:{k % 3}"/>'
+    return svg(24, 16, body, "A ringing bell with a badge", ANIM)
+
 def favicon():
     return svg(10, 14, rects(FLAME_A, 0, 0), "Flare")
 
 if __name__ == "__main__":
     OUT.mkdir(parents=True, exist_ok=True)
     for name, s in {"hero.svg": hero(), "sync.svg": icon_sync(), "auth.svg": icon_auth(),
-                    "analytics.svg": icon_analytics(), "flags.svg": icon_flags(), "flame.svg": favicon()}.items():
+                    "analytics.svg": icon_analytics(), "flags.svg": icon_flags(), "push.svg": icon_push(),
+                    "flame.svg": favicon()}.items():
         (OUT / name).write_text(s)
         print(name, len(s))

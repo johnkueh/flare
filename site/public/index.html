@@ -4,9 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Flare: your apps' backend, on Cloudflare</title>
-<meta name="description" content="Offline-first sync, auth, feature flags, analytics and crash reporting for iOS, Android and web, from one Rust core and your own Cloudflare Worker.">
+<meta name="description" content="Offline-first sync, auth, feature flags, push notifications, analytics and crash reporting for iOS, Android and web, from one Rust core and your own Cloudflare Worker.">
 <meta property="og:title" content="Flare: your apps' backend, on Cloudflare">
-<meta property="og:description" content="Offline-first sync, auth, feature flags, analytics and crash reporting for iOS, Android and web, from one Rust core and your own Cloudflare Worker.">
+<meta property="og:description" content="Offline-first sync, auth, feature flags, push notifications, analytics and crash reporting for iOS, Android and web, from one Rust core and your own Cloudflare Worker.">
 <meta property="og:image" content="https://flare.jkyf.dev/og.png">
 <meta property="og:url" content="https://flare.jkyf.dev">
 <meta name="twitter:card" content="summary_large_image">
@@ -70,6 +70,7 @@ section{padding:70px 0}
 .head h2{font-size:clamp(32px,4.5vw,48px)}
 .head p{color:var(--muted);font-size:18px;margin:14px 0 0}
 .cards{display:grid;grid-template-columns:repeat(2,1fr);gap:22px}
+.cards>.card:last-child:nth-child(odd){grid-column:1/-1}
 .card{background:var(--card);border:2px solid var(--ink);border-radius:16px;box-shadow:4px 4px 0 var(--ink);padding:24px;display:flex;flex-direction:column}
 .card img{width:96px;height:64px;margin-bottom:18px}
 .card h3{font-size:26px;margin-bottom:8px}
@@ -151,7 +152,7 @@ footer a:hover{color:var(--ink)}
     <div>
       <p class="eyebrow">Open source · Rust · Cloudflare</p>
       <h1>Your apps' backend, on <em>Cloudflare</em>.</h1>
-      <p class="lede">Like Firebase, but it's your own Worker. Phones work offline, share data with each other, sign in and report analytics and crashes, from one Rust core on iOS, Android and the web.</p>
+      <p class="lede">Like Firebase, but it's your own Worker. Phones work offline, share data with each other, sign in, get notified and report analytics and crashes, from one Rust core on iOS, Android and the web.</p>
       <div class="actions">
         <a class="btn" href="https://github.com/johnkueh/flare">
           <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
@@ -170,9 +171,9 @@ footer a:hover{color:var(--ink)}
   <section id="pieces" class="band">
     <div class="wrap">
       <div class="head">
-        <p class="eyebrow">Four pieces</p>
+        <p class="eyebrow">Five pieces</p>
         <h2>Everything an app needs from a server.</h2>
-        <p>Use one or all four. Each is a package you add to your own Worker, with a small Swift and Kotlin side.</p>
+        <p>Use one or all five. Each is a package you add to your own Worker, with a small Swift and Kotlin side.</p>
       </div>
       <div class="cards">
         <article class="card">
@@ -209,6 +210,17 @@ footer a:hover{color:var(--ink)}
           <a class="more" href="https://github.com/johnkueh/flare/blob/main/FLAGS.md">Read FLAGS.md →</a>
         </article>
         <article class="card">
+          <img class="pixel" src="/art/push.svg" alt="">
+          <h3>Push</h3>
+          <p>Tell people what changed while they were away. Your Worker sends straight to Apple and Google, with each phone's token kept in your D1. No OneSignal, no Knock.</p>
+          <ul>
+            <li>Notify everyone in a space but the sender</li>
+            <li>A newer notification replaces the older one</li>
+            <li>Permission states for a polite ask, no UI imposed</li>
+          </ul>
+          <a class="more" href="https://github.com/johnkueh/flare/blob/main/PUSH.md">Read PUSH.md →</a>
+        </article>
+        <article class="card">
           <img class="pixel" src="/art/analytics.svg" alt="">
           <h3>Analytics and crashes</h3>
           <p>A Rust SDK queues events on disk and sends them in batches. They land in Iceberg tables you query with SQL. Crashes, hangs and errors come in the same way. No Firebase, no GA4, no Sentry.</p>
@@ -237,8 +249,8 @@ footer a:hover{color:var(--ink)}
         <div class="node"><b>Rust core</b><span>The local store, the merge rule and the event queue. Same code on every platform.</span>
           <div class="tags"><span class="tag">SQLite</span><span class="tag">UniFFI</span></div></div>
         <div class="arrow" aria-hidden="true"><i></i><i></i><i></i></div>
-        <div class="node"><b>Your Worker</b><span>One Durable Object per space, accounts in D1, photos in R2, events in Basin.</span>
-          <div class="tags"><span class="tag">Durable Objects</span><span class="tag">D1</span><span class="tag">R2</span><span class="tag">Basin</span></div></div>
+        <div class="node"><b>Your Worker</b><span>One Durable Object per space, accounts in D1, photos in R2, events in Basin, notifications through a Queue.</span>
+          <div class="tags"><span class="tag">Durable Objects</span><span class="tag">D1</span><span class="tag">R2</span><span class="tag">Basin</span><span class="tag">Queues</span></div></div>
       </div>
       <div class="mozilla">
         <img class="pixel" src="/art/flame.svg" alt="">
@@ -251,6 +263,10 @@ footer a:hover{color:var(--ink)}
       <div class="mozilla">
         <img class="pixel" src="/art/flags.svg" alt="" style="width:36px;height:24px">
         <div><b>Flags like LaunchDarkly and Statsig.</b> Each user is evaluated by a stable key, so a 10% rollout keeps the same people, as in LaunchDarkly. Like Statsig's mobile SDKs, the app starts with the values it last saw, and a flag a screen has read doesn't change under the user. The difference: the rules live in Cloudflare Flagship behind your own Worker, and it speaks OpenFeature's OFREP. <a href="https://github.com/johnkueh/flare/blob/main/FLAGS.md#how-values-behave">How it works →</a></div>
+      </div>
+      <div class="mozilla">
+        <img class="pixel" src="/art/push.svg" alt="" style="width:36px;height:24px">
+        <div><b>Push without a push service.</b> Knock and OneSignal hold your users' tokens and send for you; they still need your Apple key and Firebase project. Flare keeps the tokens in your D1 and sends from your Worker, through a Queue that retries and drops dead tokens. One command sets up the queue, the Apple capability and Firebase. <a href="https://github.com/johnkueh/flare/blob/main/PUSH.md">How it works →</a></div>
       </div>
     </div>
   </section>
@@ -267,6 +283,7 @@ footer a:hover{color:var(--ink)}
         <button class="tab" role="tab" aria-selected="false" aria-controls="p-ios" id="t-ios" type="button">iOS</button>
         <button class="tab" role="tab" aria-selected="false" aria-controls="p-android" id="t-android" type="button">Android</button>
         <button class="tab" role="tab" aria-selected="false" aria-controls="p-flags" id="t-flags" type="button">Flags</button>
+        <button class="tab" role="tab" aria-selected="false" aria-controls="p-push" id="t-push" type="button">Push</button>
         <button class="tab" role="tab" aria-selected="false" aria-controls="p-analytics" id="t-analytics" type="button">Analytics</button>
       </div>
       <div class="panel" role="tabpanel" id="p-worker" aria-labelledby="t-worker">
@@ -312,6 +329,21 @@ implementation(<span class="s">"com.github.johnkueh:flare:0.5.0"</span>)</pre>
 <span class="c">// Web, Node and CLIs</span>
 <span class="k">if</span> (flags.get(<span class="s">"new-checkout"</span>)) { … }</pre>
         <p>Add a flag to the JSON, run <code>flare-flags sync</code>, build. No codegen step, no Mac needed. <a href="https://github.com/johnkueh/flare/blob/main/FLAGS.md">Full setup →</a></p>
+      </div>
+      <div class="panel" role="tabpanel" id="p-push" aria-labelledby="t-push" hidden>
+<pre><span class="c"># once per app: queue, Apple capability, Firebase</span>
+npx flare-push setup --ios com.me.app --android com.me.app --firebase my-app
+
+<span class="c">// notifications.json</span>
+{ <span class="s">"notifications"</span>: { <span class="s">"item_added"</span>: { <span class="s">"body"</span>: <span class="s">"{{actor}} added {{item}}"</span>, <span class="s">"collapse"</span>: <span class="k">true</span> } } }
+
+<span class="c">// Worker, after a write</span>
+ctx.waitUntil(notifySpace(env, push, spaceId, { from: userId }, <span class="s">"item_added"</span>, data));
+
+<span class="c">// Swift</span>
+<span class="k">@UIApplicationDelegateAdaptor</span>(FlarePushAppDelegate.<span class="k">self</span>) <span class="k">var</span> delegate
+Button(<span class="s">"Turn on"</span>) { Task { <span class="k">await</span> push.request() } }</pre>
+        <p>Android declares one service and uses the same calls. <code>flare-push test</code> sends one to your phone. <a href="https://github.com/johnkueh/flare/blob/main/PUSH.md">Full setup →</a></p>
       </div>
       <div class="panel" role="tabpanel" id="p-analytics" aria-labelledby="t-analytics" hidden>
 <pre><span class="c"># your-core/Cargo.toml</span>
