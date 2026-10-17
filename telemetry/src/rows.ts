@@ -88,7 +88,9 @@ export function toRows(
       os_version: str(ctx.os_version, 32),
       device_model: str(ctx.device_model, 64),
       locale: str(ctx.locale, 32),
-      country,
+      // The app's own Worker passes on the visitor's country (mountEvents);
+      // behind a service binding this Worker can't see it.
+      country: str(ctx.country, 2) ?? country,
       sdk: str(ctx.sdk, 64),
     });
   }
