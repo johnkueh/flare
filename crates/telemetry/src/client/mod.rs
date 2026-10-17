@@ -1,14 +1,16 @@
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
-use std::sync::{Arc, Condvar, Mutex, MutexGuard};
+use std::sync::{Arc, Condvar, Mutex, MutexGuard, Once, OnceLock, TryLockError, Weak};
 use std::thread;
 use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
+use crate::breadcrumbs::{self, Breadcrumbs};
 use crate::ids::{event_id, now_ms, random_id};
+use crate::problems::{self, ProblemReport};
 use crate::queue::Queue;
 use crate::transport::{Outcome, Transport};
 
@@ -90,7 +92,10 @@ struct Persisted {
 
 struct State {
     queue: Queue,
+    crumbs: Breadcrumbs,
     persisted: Persisted,
+    /// The session the last run ended in, for crashes reported on this launch.
+    previous_session_id: Option<String>,
     user_id: Option<String>,
     enabled: bool,
     flush_requested: bool,
@@ -138,13 +143,17 @@ impl TelemetryClient {
 
         let context_json = context_json(&config, &persisted.install_id);
         let queue = Queue::open(&dir, config.max_queue_size as usize);
+        let crumbs = Breadcrumbs::open(&dir);
+        let previous_session_id = Some(persisted.session_id.clone()).filter(|s| !s.is_empty());
         let shared = Arc::new(Shared {
             config,
             state_path,
             context_json,
             state: Mutex::new(State {
                 queue,
+                crumbs,
                 persisted,
+                previous_session_id,
                 user_id: None,
                 enabled: true,
                 flush_requested: false,
@@ -188,6 +197,30 @@ impl TelemetryClient {
             }
         }
         enqueue(&self.shared, &mut state, &name, out);
+    }
+
+    /// Queue a crash, hang or handled error as a `crash` / `hang` / `error`
+    /// event with its stack and the last breadcrumbs. Respects
+    /// `set_enabled(false)` like `track`.
+    pub fn report(&self, report: ProblemReport) {
+        let mut state = self.shared.lock();
+        record_problem(&self.shared, &mut state, &report);
+    }
+
+    /// Report Rust panics in this process as problems (`type = rust_panic`).
+    /// Chains to the panic hook that was there before; installing twice, or
+    /// from a second client, only retargets it.
+    pub fn install_panic_hook(&self) {
+        let target = PANIC_TARGET.get_or_init(|| Mutex::new(Weak::new()));
+        *target.lock().unwrap_or_else(|p| p.into_inner()) = Arc::downgrade(&self.shared);
+        static INSTALL: Once = Once::new();
+        INSTALL.call_once(|| {
+            let previous = std::panic::take_hook();
+            std::panic::set_hook(Box::new(move |info| {
+                report_panic(info);
+                previous(info);
+            }));
+        });
     }
 
     /// Ties later events to an id (e.g. RevenueCat's app user id). `None` clears it.
@@ -270,20 +303,71 @@ impl Shared {
     }
 }
 
+static PANIC_TARGET: OnceLock<Mutex<Weak<Shared>>> = OnceLock::new();
+
+fn report_panic(info: &std::panic::PanicHookInfo<'_>) {
+    let Some(shared) = PANIC_TARGET.get().and_then(|t| t.try_lock().ok()).and_then(|weak| weak.upgrade()) else {
+        return;
+    };
+    // The panicking thread may already hold the lock (a panic inside this
+    // crate): skip rather than deadlock.
+    let mut state = match shared.state.try_lock() {
+        Ok(guard) => guard,
+        Err(TryLockError::Poisoned(p)) => p.into_inner(),
+        Err(TryLockError::WouldBlock) => return,
+    };
+    record_problem(&shared, &mut state, &problems::from_panic(info));
+}
+
+fn record_problem(shared: &Shared, state: &mut State, report: &ProblemReport) {
+    if !state.enabled {
+        return;
+    }
+    let mut params = problems::params(report);
+    let crumbs = if report.from_previous_run {
+        state.crumbs.previous_run(report.occurred_at_ms)
+    } else {
+        state.crumbs.current()
+    };
+    let skip = crumbs.len().saturating_sub(breadcrumbs::KEEP);
+    params.insert("breadcrumbs".into(), Value::Array(crumbs.into_iter().skip(skip).collect()));
+    let name = report.kind.event_name();
+    if report.from_previous_run {
+        // Count it against the session it happened in, on the day it happened.
+        let session = state.previous_session_id.clone();
+        let ts = report.occurred_at_ms.unwrap_or_else(now_ms);
+        push_event(shared, state, name, params, ts, session);
+    } else {
+        enqueue(shared, state, name, params);
+    }
+    // A crash report may be the last thing this process does.
+    state.flush_requested = true;
+    shared.wake.notify_all();
+}
+
 fn enqueue(shared: &Shared, state: &mut State, name: &str, params: Map<String, Value>) {
     let ts = now_ms();
     if touch_session(shared, state, ts) {
-        push_event(shared, state, "session_start", Map::new(), ts);
+        push_event(shared, state, "session_start", Map::new(), ts, None);
     }
-    push_event(shared, state, name, params, ts);
+    push_event(shared, state, name, params, ts, None);
 }
 
-fn push_event(shared: &Shared, state: &mut State, name: &str, params: Map<String, Value>, ts: i64) {
+fn push_event(
+    shared: &Shared,
+    state: &mut State,
+    name: &str,
+    params: Map<String, Value>,
+    ts: i64,
+    session_id: Option<String>,
+) {
+    let session_id = session_id.unwrap_or_else(|| state.persisted.session_id.clone());
+    state.crumbs.push(serde_json::json!({ "name": name, "ts": ts, "session_id": session_id }));
     let mut event = Map::new();
     event.insert("event_id".into(), Value::String(event_id()));
     event.insert("name".into(), Value::String(name.into()));
     event.insert("ts".into(), Value::from(ts));
-    event.insert("session_id".into(), Value::String(state.persisted.session_id.clone()));
+    event.insert("session_id".into(), Value::String(session_id));
     if let Some(user_id) = &state.user_id {
         event.insert("user_id".into(), Value::String(user_id.clone()));
     }
