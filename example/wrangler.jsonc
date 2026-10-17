@@ -25,8 +25,9 @@
   // wrangler's local store: `pnpm flags:local` creates them there.
   "flagship": [{ "binding": "FLAGS", "app_id": "flare-example" }],
   // Push notifications (@flare/push): notify() queues, the queue() handler sends.
-  // APNS_KEY, APNS_KEY_ID, APNS_TEAM_ID, APNS_TOPICS and FCM_SERVICE_ACCOUNT are
-  // secrets; without them sends are logged as failed and dropped.
+  // APNS_KEY, APNS_KEY_ID, APNS_TEAM_ID and FCM_SERVICE_ACCOUNT are secrets and
+  // APNS_TOPICS a var (`flare-push setup` sets them); without them sends are
+  // logged as failed and dropped.
   "queues": {
     "producers": [{ "binding": "PUSH_QUEUE", "queue": "flare-example-push" }],
     "consumers": [{ "queue": "flare-example-push", "max_batch_size": 100, "max_retries": 5 }]

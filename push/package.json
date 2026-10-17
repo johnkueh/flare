@@ -2,14 +2,15 @@
   "name": "@flare/push",
   "private": true,
   "type": "module",
-  "description": "Push notifications for apps on Flare: device tokens in the app's D1, sends through a Queue straight to APNs and FCM. Cloudflare only and no npm dependencies; Workers install it from GitHub (see PUSH.md).",
+  "description": "Push notifications for apps on Flare: device tokens in the app's D1, sends through a Queue straight to APNs and FCM. Cloudflare only and no npm dependencies; Workers install it from GitHub, and the flare-push CLI sets an app up (see PUSH.md).",
   "exports": {
     ".": "./src/index.ts",
     "./spaces": "./src/spaces.ts",
     "./schema.json": "./schema.json"
   },
   "scripts": {
-    "test": "node --test --experimental-strip-types src/*.test.ts",
+    "build": "tsc -p tsconfig.build.json",
+    "test": "node --test --experimental-strip-types src/*.test.ts bin/*.test.mjs",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
@@ -25,5 +26,15 @@
     "@sync/server": {
       "optional": true
     }
-  }
+  },
+  "bin": {
+    "flare-push": "./bin/flare-push.mjs"
+  },
+  "files": [
+    "src",
+    "dist",
+    "bin",
+    "migrations",
+    "schema.json"
+  ]
 }
