@@ -8,7 +8,12 @@
   "workers_dev": true,
   "pipelines": [{ "binding": "EVENTS", "stream": "YOUR_STREAM_ID" }],
   "vars": {
-    "APP_KEYS": "{\"k_example_000000000000000000000001\":\"glp3\",\"k_example_000000000000000000000002\":\"snuglog\",\"k_example_000000000000000000000003\":\"cooked\"}"
+    "APP_KEYS": "{\"k_example_000000000000000000000001\":\"glp3\",\"k_example_000000000000000000000002\":\"snuglog\",\"k_example_000000000000000000000003\":\"cooked\",\"k_example_000000000000000000000004\":\"ledgersignal\"}",
+    // Search Console property -> app id, for the daily pull.
+    "GSC_SITES": "{}"
   },
+  // The daily Search Console pull (src/gsc.ts). Does nothing until the
+  // GSC_SERVICE_ACCOUNT secret is set. Sites: GSC_SITES, above.
+  "triggers": { "crons": ["0 6 * * *"] },
   "observability": { "enabled": true }
 }
