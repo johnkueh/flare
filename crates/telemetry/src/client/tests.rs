@@ -131,3 +131,82 @@ fn drops_a_rejected_batch() {
 fn rejects_a_bad_endpoint() {
     assert!(TelemetryClient::new(config("ftp://nope", &temp_dir())).is_err());
 }
+
+fn frame(module: &str, function: &str) -> crate::StackFrame {
+    crate::StackFrame { module: module.into(), function: Some(function.into()), in_app: true, ..Default::default() }
+}
+
+#[test]
+fn reports_a_handled_error_with_this_runs_breadcrumbs() {
+    let (url, rx) = server(vec![]);
+    let client = TelemetryClient::new(config(&url, &temp_dir())).unwrap();
+    client.track("dose_logged".into(), HashMap::new());
+    client.report(crate::ProblemReport {
+        kind: crate::ProblemKind::Error,
+        type_name: "SyncError".into(),
+        message: "x".repeat(5000),
+        frames: vec![frame("GLP3", "DoseStore.save")],
+        from_previous_run: false,
+        occurred_at_ms: None,
+        app_version: None,
+        app_build: None,
+    });
+    assert!(client.flush_blocking(5000));
+    let batch = rx.recv_timeout(Duration::from_secs(5)).unwrap();
+    assert_eq!(names(&batch), ["session_start", "first_open", "dose_logged", "error"]);
+    let p = &batch["events"][3]["params"];
+    assert_eq!(p["type"], "SyncError");
+    assert_eq!(p["message"].as_str().unwrap().len(), 1000);
+    assert_eq!(p["frames"][0], serde_json::json!({"module": "GLP3", "function": "DoseStore.save", "in_app": true}));
+    let crumbs: Vec<&str> = p["breadcrumbs"].as_array().unwrap().iter().map(|c| c["name"].as_str().unwrap()).collect();
+    assert_eq!(crumbs, ["session_start", "first_open", "dose_logged"]);
+}
+
+#[test]
+fn a_crash_from_the_last_run_gets_that_runs_session_and_breadcrumbs() {
+    let (url, rx) = server(vec![]);
+    let dir = temp_dir();
+    let last_session;
+    {
+        let client = TelemetryClient::new(config(&url, &dir)).unwrap();
+        client.track("checkout_tapped".into(), HashMap::new());
+        last_session = client.session_id();
+        assert!(client.flush_blocking(5000));
+        rx.recv_timeout(Duration::from_secs(5)).unwrap();
+    }
+    let crashed_at = now_ms();
+    let client = TelemetryClient::new(config(&url, &dir)).unwrap();
+    client.track("app_opened".into(), HashMap::new());
+    client.report(crate::ProblemReport {
+        kind: crate::ProblemKind::Crash,
+        type_name: "EXC_BAD_ACCESS SIGSEGV".into(),
+        message: String::new(),
+        frames: vec![],
+        from_previous_run: true,
+        occurred_at_ms: Some(crashed_at),
+        app_version: Some("1.9".into()),
+        app_build: None,
+    });
+    assert!(client.flush_blocking(5000));
+    let batch = rx.recv_timeout(Duration::from_secs(5)).unwrap();
+    let crash = batch["events"].as_array().unwrap().iter().find(|e| e["name"] == "crash").unwrap();
+    assert_eq!(crash["session_id"], last_session.as_str());
+    assert_eq!(crash["params"]["crashed_version"], "1.9");
+    let crumbs: Vec<&str> =
+        crash["params"]["breadcrumbs"].as_array().unwrap().iter().map(|c| c["name"].as_str().unwrap()).collect();
+    assert_eq!(crumbs, ["session_start", "first_open", "checkout_tapped"], "not this run's app_opened");
+}
+
+#[test]
+fn reports_a_rust_panic() {
+    let (url, rx) = server(vec![]);
+    let client = TelemetryClient::new(config(&url, &temp_dir())).unwrap();
+    client.install_panic_hook();
+    let _ = thread::spawn(|| panic!("boom")).join();
+    assert!(client.flush_blocking(5000));
+    let batch = rx.recv_timeout(Duration::from_secs(5)).unwrap();
+    let event = batch["events"].as_array().unwrap().iter().find(|e| e["name"] == "error").unwrap();
+    assert_eq!(event["params"]["type"], "rust_panic");
+    assert_eq!(event["params"]["message"], "boom");
+    assert!(event["params"]["frames"][0]["file_line"].as_str().unwrap().contains("tests.rs"));
+}

@@ -1,6 +1,8 @@
 // Turns one SDK batch into stream rows (schema.json). Pure, so it is tested
 // with node --test; index.ts does the HTTP side.
 
+import { PROBLEM_EVENTS, problemParams } from "./problems.ts";
+
 export type Row = {
   received_at: string;
   client_ts: string;
@@ -67,6 +69,7 @@ export function toRows(
     const name = typeof e.name === "string" && KEY.test(e.name) ? e.name : null;
     const eventId = str(e.event_id, 64);
     if (!name || !eventId) continue;
+    const params = isObject(e.params) ? e.params : {};
     const ts = typeof e.ts === "number" && Number.isFinite(e.ts) && skew !== null ? e.ts + skew : receivedAtMs;
     rows.push({
       received_at: receivedAt,
@@ -79,7 +82,7 @@ export function toRows(
       user_id: str(e.user_id, 128),
       event_id: eventId,
       name,
-      params: isObject(e.params) ? e.params : {},
+      params: PROBLEM_EVENTS.has(name) ? problemParams(name, params) : params,
       app_version: str(ctx.app_version, 32),
       app_build: str(ctx.app_build, 32),
       os_version: str(ctx.os_version, 32),
