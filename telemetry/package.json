@@ -2,11 +2,28 @@
   "name": "@flare/telemetry",
   "private": true,
   "type": "module",
-  "description": "Product analytics for apps on Flare: the /v1/events ingest handler that writes SDK batches to a Cloudflare Basin stream. Workers install it from GitHub (see TELEMETRY.md).",
+  "description": "Product analytics for apps on Flare: the /v1/events ingest Worker (Cloudflare Basin), the web and Worker senders, events.json, and the daily Search Console pull. Install from GitHub (see TELEMETRY.md).",
   "exports": {
-    ".": "./src/handler.ts"
+    ".": {
+      "types": "./dist/handler.d.ts",
+      "default": "./dist/handler.js"
+    },
+    "./browser": {
+      "types": "./dist/browser.d.ts",
+      "default": "./dist/browser.js"
+    },
+    "./server": {
+      "types": "./dist/server.d.ts",
+      "default": "./dist/server.js"
+    },
+    "./events": {
+      "types": "./dist/events.d.ts",
+      "default": "./dist/events.js"
+    },
+    "./schema.json": "./schema.json"
   },
   "scripts": {
+    "build": "tsc -p tsconfig.build.json",
     "test": "node --test --experimental-strip-types src/*.test.ts",
     "typecheck": "tsc --noEmit",
     "deploy": "wrangler deploy"
@@ -14,6 +31,15 @@
   "devDependencies": {
     "@cloudflare/workers-types": "^5.20261014.1",
     "typescript": "^5.9.3",
-    "wrangler": "4.151.0"
-  }
+    "wrangler": "4.151.0",
+    "@types/node": "^22"
+  },
+  "bin": {
+    "flare-telemetry": "./bin/flare-telemetry.mjs"
+  },
+  "files": [
+    "dist",
+    "bin",
+    "schema.json"
+  ]
 }

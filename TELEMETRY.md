@@ -6,7 +6,15 @@ Basin), which you query with SQL.
 
 ```
 app (telemetry-sdk, Rust) ──POST /v1/events──▶ Worker ──▶ Basin stream ──▶ telemetry.events (Iceberg, by day)
+web page (@flare/telemetry/browser) ─▶ your Worker (/api/events) ─┘
+your Worker (@flare/telemetry/server) ─────────────────────────────┘
+Search Console API ──daily──▶ Worker ─┘
 ```
+
+One product (say `ledgersignal`) uses one `app_id` on every platform, told
+apart by `platform` (`ios`, `android`, `web`, `server`, `search`), and one
+`events.json`, so a funnel from a Google search to a web sign-up to the
+phone app is one query.
 
 At small-app volume this costs nothing beyond Workers Paid: ingest is free,
 the first 50 GB a month of pipeline processing is included, and Basin SQL
@@ -60,7 +68,8 @@ Event names and param keys are lowercase snake case (1 to 64 chars); others
 are dropped. Strings are cut at 500 chars, non-finite numbers dropped.
 Which events and params an app sends is the app's own contract.
 
-For a web page, post the same JSON from TypeScript; there is no WASM build.
+For web pages and Workers there are TS senders with the same ids and batch
+format; see "Web projects" below.
 
 ## Crashes, hangs and errors
 
@@ -117,12 +126,138 @@ WHERE app_id = 'glp3' AND env = 'prod' AND __ingest_ts >= '2026-10-10'
 GROUP BY 1 ORDER BY 1 DESC LIMIT 20
 ```
 
+## Web projects
+
+```sh
+pnpm add "@flare/telemetry@github:johnkueh/flare#<tag>&path:/telemetry"
+npx flare-telemetry init --app ledgersignal
+```
+
+`init` writes `events.json`, binds the shared Worker in `wrangler.jsonc` as
+`TELEMETRY` (a service binding, so no public hop), and prints an app key
+and the code below. Add the key to `APP_KEYS` in `telemetry/wrangler.jsonc`
+here and deploy. `npx flare-telemetry check` in CI keeps `events.json` to
+the naming rules.
+
+### events.json
+
+```json
+{
+  "events": {
+    "statement_extracted": { "description": "A statement's rows are in.", "params": { "pages": 0, "bank": "" } }
+  }
+}
+```
+
+A param's type comes from its example value: a number, `true`/`false` or
+text. `track` is typed from the imported file (no code generation), so a
+misspelt event or a wrong param type doesn't compile. `first_open`,
+`session_start`, `page_view` and `error` are always allowed.
+
+### In the browser
+
+```ts
+import { telemetry } from "@flare/telemetry/browser";
+import events from "../events.json";
+
+export const t = telemetry({ appId: "ledgersignal", appKey: "k_…", events, env: import.meta.env.PROD ? "prod" : "dev" });
+t.identify(user.id);                   // after sign-in; null after sign-out
+t.track("csv_exported", { rows: 120 });
+```
+
+It does what the Rust SDK does: an install id and a session id (new after
+30 idle minutes) in localStorage, `first_open` and `session_start`, a queue
+that survives a reload, batches every 10 s or at 50 events, a `keepalive`
+flush when the tab is hidden, and retry on network errors, 408, 429 and
+5xx. It also sends a `page_view {path, referrer}` on load and on every
+History API navigation (any router), without the query string, and an
+`error` for uncaught errors and rejections, in the crash shape above.
+
+It posts to `/api/events` on the page's own origin, so ad blockers and
+CORS stay out of it, and keeps its ids in a first-party `flare_ids` cookie
+so the Worker can file its own events under the same session.
+
+### In the Worker
+
+```ts
+import { mountEvents, serverTelemetry } from "@flare/telemetry/server";
+import events from "../events.json";
+
+const telemetry = serverTelemetry({ target: env.TELEMETRY, appId: "ledgersignal", appKey: "k_…", events });
+
+// the browser's batches (adds the visitor's country, then forwards)
+if (url.pathname === "/api/events") return mountEvents(request, env.TELEMETRY);
+
+// product events, sent where they happen
+telemetry.track("statement_extracted", { pages: 12 }, { userId, request, waitUntil: (p) => ctx.waitUntil(p) });
+```
+
+Server events have `platform = "server"`. With `request`, they take the
+browser's install and session ids from its cookie and the visitor's
+country; with `waitUntil`, the response never waits on them. Sending never
+throws. Off Cloudflare, `target` is the Worker's URL instead of a binding.
+
+What matters for the product (an upload finished, an extraction failed) is
+best sent from the server: ad blockers can't drop it and nobody can fake
+it. Keep customer content out of params; send ids and counts.
+
+## Search Console
+
+The Worker pulls Google Search Console's Search Analytics API every day at
+06:00 UTC for the day three days back (when Google's numbers are final), one
+`gsc_query` row per site, day, query, page, country and device:
+`platform = "search"`, params `site, date, query, page, country, device,
+clicks, impressions, position`. Search Console has no push, and its bulk
+export only goes to BigQuery, which is why it's a pull.
+
+Setup, once:
+
+1. In Google Cloud, enable the Search Console API and make a service
+   account with a JSON key: `npx wrangler secret put GSC_SERVICE_ACCOUNT`
+   (paste the JSON).
+2. In Search Console, add the service account's email to each property as a
+   restricted user.
+3. List the properties in `GSC_SITES` (`{"sc-domain:ledgersignal.com":
+   "ledgersignal"}`) and deploy.
+
+To backfill (the API keeps 16 months), set `GSC_ADMIN_TOKEN` and post a day
+at a time:
+
+```sh
+curl -X POST https://flare-telemetry.john-kueh.workers.dev/v1/gsc/pull \
+  -H "authorization: Bearer $GSC_ADMIN_TOKEN" -d '{"date":"2026-06-01"}'
+```
+
+```sql
+-- Top queries last 28 days
+SELECT json_get_str(params, 'query') AS query,
+       SUM(json_get_int(params, 'clicks')) AS clicks, SUM(json_get_int(params, 'impressions')) AS impressions
+FROM telemetry.events
+WHERE app_id = 'ledgersignal' AND name = 'gsc_query' AND client_ts >= '2026-09-19'
+GROUP BY 1 ORDER BY clicks DESC LIMIT 50
+```
+
+The cron pulls each day once. A day pulled again by hand writes its rows
+again, with the same `event_id`s, so count `DISTINCT event_id` (or pull
+only days you haven't) when that matters.
+
+Google leaves out rare queries for privacy, so the query rows add up to
+less than the site's total clicks.
+
+## Cloudflare Web Analytics
+
+It's a separate, free product: a cookieless beacon (or one toggle on a
+proxied zone) for page views, referrers and Core Web Vitals, kept in the
+Cloudflare dashboard. It has no custom events or user ids and doesn't feed
+this table or Search Console. With `page_view` sent for you, you don't need
+it for numbers; turn it on for marketing sites if you want Web Vitals.
+
 ## The Worker (`telemetry/`)
 
 `handleEvents(request, env)` checks the `x-app-key` header against
 `APP_KEYS`, turns a batch into rows (`telemetry/schema.json`), corrects the
 timestamps of a phone whose clock is off (by the gap between its `sent_at`
-and the server's time), adds the country, and sends the rows to the stream
+and the server's time), adds the country (or takes the one an app's Worker passed on), and sends the rows to the stream
 bound as `EVENTS`. A bad batch gets a 400 and the SDK drops it; a failed
 write is a 5xx and the SDK retries.
 
