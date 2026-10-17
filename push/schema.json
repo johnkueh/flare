@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "notifications.json",
+  "description": "Every kind of push notification a Flare app sends (@flare/push, PUSH.md).",
+  "type": "object",
+  "required": ["notifications"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "type": "string" },
+    "channels": {
+      "description": "Android notification channels. People can switch each off on its own in Settings.",
+      "type": "object",
+      "propertyNames": { "pattern": "^[a-z][a-z0-9_]{0,63}$" },
+      "additionalProperties": {
+        "type": "object",
+        "required": ["name"],
+        "additionalProperties": false,
+        "properties": {
+          "name": { "type": "string", "description": "What Android's settings call it." },
+          "description": { "type": "string" },
+          "importance": { "enum": ["min", "low", "default", "high"], "default": "default" }
+        }
+      }
+    },
+    "notifications": {
+      "type": "object",
+      "propertyNames": { "pattern": "^[a-z][a-z0-9_]{0,63}$" },
+      "additionalProperties": {
+        "type": "object",
+        "required": ["title", "body"],
+        "additionalProperties": false,
+        "properties": {
+          "title": { "type": "string", "description": "{{name}} is replaced with data.name." },
+          "body": { "type": "string", "description": "{{name}} is replaced with data.name." },
+          "collapse": {
+            "type": "boolean",
+            "default": false,
+            "description": "A newer one replaces the older one on the phone instead of stacking (per scope)."
+          },
+          "interruption": { "enum": ["passive", "active", "time-sensitive"], "default": "active" },
+          "channel": { "type": "string", "description": "Android channel id. Default: the first channel." },
+          "sound": { "type": "boolean", "default": true },
+          "description": { "type": "string" }
+        }
+      }
+    }
+  }
+}

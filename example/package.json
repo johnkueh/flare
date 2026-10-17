@@ -2,7 +2,7 @@
   "name": "@flare/example",
   "private": true,
   "type": "module",
-  "description": "A shared grocery list on Flare: the sync server, @flare/auth and @flare/flags in one Worker, with a web page. Used to test them end to end.",
+  "description": "A shared grocery list on Flare: the sync server, @flare/auth, @flare/flags and @flare/push in one Worker, with a web page. Used to test them end to end.",
   "scripts": {
     "dev": "pnpm build:web && flare-flags sync --local && wrangler dev",
     "build:web": "esbuild web/flags.ts --bundle --format=esm --outfile=public/flags.js",
@@ -16,6 +16,7 @@
   "dependencies": {
     "@flare/auth": "link:../auth",
     "@flare/flags": "link:../flags",
+    "@flare/push": "link:../push",
     "@sync/server": "link:../server"
   },
   "devDependencies": {
