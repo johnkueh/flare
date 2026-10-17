@@ -4,9 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Flare: your apps' backend, on Cloudflare</title>
-<meta name="description" content="Offline-first sync, auth, feature flags and analytics for iOS, Android and web, from one Rust core and your own Cloudflare Worker.">
+<meta name="description" content="Offline-first sync, auth, feature flags, analytics and crash reporting for iOS, Android and web, from one Rust core and your own Cloudflare Worker.">
 <meta property="og:title" content="Flare: your apps' backend, on Cloudflare">
-<meta property="og:description" content="Offline-first sync, auth, feature flags and analytics for iOS, Android and web, from one Rust core and your own Cloudflare Worker.">
+<meta property="og:description" content="Offline-first sync, auth, feature flags, analytics and crash reporting for iOS, Android and web, from one Rust core and your own Cloudflare Worker.">
 <meta property="og:image" content="https://flare.jkyf.dev/og.png">
 <meta property="og:url" content="https://flare.jkyf.dev">
 <meta name="twitter:card" content="summary_large_image">
@@ -151,7 +151,7 @@ footer a:hover{color:var(--ink)}
     <div>
       <p class="eyebrow">Open source · Rust · Cloudflare</p>
       <h1>Your apps' backend, on <em>Cloudflare</em>.</h1>
-      <p class="lede">Like Firebase, but it's your own Worker. Phones work offline, share data with each other, sign in and send analytics, from one Rust core on iOS, Android and the web.</p>
+      <p class="lede">Like Firebase, but it's your own Worker. Phones work offline, share data with each other, sign in and report analytics and crashes, from one Rust core on iOS, Android and the web.</p>
       <div class="actions">
         <a class="btn" href="https://github.com/johnkueh/flare">
           <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
@@ -160,7 +160,7 @@ footer a:hover{color:var(--ink)}
         <a class="btn ghost" href="#add">Add it to an app</a>
       </div>
       <div class="install">
-        <code id="install">pnpm add "@sync/server@github:johnkueh/flare#0.4.0&amp;path:/server"</code>
+        <code id="install">pnpm add "@sync/server@github:johnkueh/flare#0.5.0&amp;path:/server"</code>
         <button class="copy" type="button" data-copy="install">Copy</button>
       </div>
     </div>
@@ -210,11 +210,11 @@ footer a:hover{color:var(--ink)}
         </article>
         <article class="card">
           <img class="pixel" src="/art/analytics.svg" alt="">
-          <h3>Analytics</h3>
-          <p>A Rust SDK queues events on disk and sends them in batches. They land in Iceberg tables you query with SQL. No Firebase, no GA4.</p>
+          <h3>Analytics and crashes</h3>
+          <p>A Rust SDK queues events on disk and sends them in batches. They land in Iceberg tables you query with SQL. Crashes, hangs and errors come in the same way. No Firebase, no GA4, no Sentry.</p>
           <ul>
             <li>Survives crashes and days offline</li>
-            <li>Sessions and first open, built in</li>
+            <li>Crashes with their stack and the last 30 events</li>
             <li>Cloudflare Basin; ingest is free</li>
           </ul>
           <a class="more" href="https://github.com/johnkueh/flare/blob/main/TELEMETRY.md">Read TELEMETRY.md →</a>
@@ -271,9 +271,9 @@ footer a:hover{color:var(--ink)}
       </div>
       <div class="panel" role="tabpanel" id="p-worker" aria-labelledby="t-worker">
 <pre><span class="c"># Sync, plus accounts and flags if you want them</span>
-pnpm add <span class="s">"@sync/server@github:johnkueh/flare#0.4.0&amp;path:/server"</span>
-pnpm add <span class="s">"@flare/auth@github:johnkueh/flare#0.4.0&amp;path:/auth"</span>
-pnpm add <span class="s">"@flare/flags@github:johnkueh/flare#0.4.0&amp;path:/flags"</span>
+pnpm add <span class="s">"@sync/server@github:johnkueh/flare#0.5.0&amp;path:/server"</span>
+pnpm add <span class="s">"@flare/auth@github:johnkueh/flare#0.5.0&amp;path:/auth"</span>
+pnpm add <span class="s">"@flare/flags@github:johnkueh/flare#0.5.0&amp;path:/flags"</span>
 
 <span class="c">// src/index.ts</span>
 <span class="k">export</span> { SpaceObject } <span class="k">from</span> <span class="s">"@sync/server/space"</span>;</pre>
@@ -293,7 +293,7 @@ maven(<span class="s">"https://jitpack.io"</span>)
 maven(<span class="s">"https://pub-796846793f3e431ab3a92e0577c57dde.r2.dev/maven"</span>)
 
 <span class="c">// app/build.gradle.kts</span>
-implementation(<span class="s">"com.github.johnkueh:flare:0.4.0"</span>)</pre>
+implementation(<span class="s">"com.github.johnkueh:flare:0.5.0"</span>)</pre>
         <p>Then the same calls as iOS, in Kotlin. <a href="https://github.com/johnkueh/flare/blob/main/SYNC.md">Full setup →</a></p>
       </div>
       <div class="panel" role="tabpanel" id="p-flags" aria-labelledby="t-flags" hidden>
@@ -315,13 +315,14 @@ implementation(<span class="s">"com.github.johnkueh:flare:0.4.0"</span>)</pre>
       </div>
       <div class="panel" role="tabpanel" id="p-analytics" aria-labelledby="t-analytics" hidden>
 <pre><span class="c"># your-core/Cargo.toml</span>
-telemetry-sdk = { git = <span class="s">"https://github.com/johnkueh/flare"</span>, tag = <span class="s">"0.4.0"</span>, features = [<span class="s">"uniffi"</span>] }
+telemetry-sdk = { git = <span class="s">"https://github.com/johnkueh/flare"</span>, tag = <span class="s">"0.5.0"</span>, features = [<span class="s">"uniffi"</span>] }
 
 <span class="c">// Swift</span>
 <span class="k">let</span> client = <span class="k">try</span> TelemetryClient(config: config)
 client.track(name: <span class="s">"recipe_saved"</span>, params: [<span class="s">"source"</span>: .text(value: <span class="s">"share"</span>)])
-client.flush() <span class="c">// when the app goes to the background</span></pre>
-        <p>Link it into your app's Rust library and the bindings come out next to yours. <a href="https://github.com/johnkueh/flare/blob/main/TELEMETRY.md">Full setup →</a></p>
+client.flush() <span class="c">// when the app goes to the background</span>
+FlareCrashes.start(client) <span class="c">// crashes and hangs from MetricKit</span></pre>
+        <p>Link it into your app's Rust library and the bindings come out next to yours. Crashes group by fingerprint in SQL. <a href="https://github.com/johnkueh/flare/blob/main/TELEMETRY.md">Full setup →</a></p>
       </div>
     </div>
   </section>
