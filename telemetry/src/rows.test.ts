@@ -40,3 +40,10 @@ test("rejects batches that can never be valid", () => {
   assert.equal(toRows(batch(), "other", NOW, null), "app_id does not match the app key");
   assert.equal(typeof toRows(batch({ events: Array(501).fill({}) }), "glp3", NOW, null), "string");
 });
+
+test("takes the country the app's Worker passed on over its own", () => {
+  const b = batch();
+  const rows = toRows({ ...b, context: { ...b.context, country: "NZ" } }, "glp3", NOW, "US");
+  if (typeof rows === "string") throw new Error(rows);
+  assert.equal(rows[0].country, "NZ");
+});
