@@ -146,18 +146,29 @@ export function telemetry(options) {
             void flush();
     };
     async function flush(keepalive = false) {
-        if (sending || queue.length === 0)
+        // The page going away doesn't wait for a send in flight: its answer won't be read either.
+        if ((sending && !keepalive) || queue.length === 0)
             return;
         sending = true;
         const batch = queue.slice(0, maxBatch);
         const body = JSON.stringify({ context, sent_at: Date.now(), events: batch });
+        const sent = new Set(batch.map((e) => e.event_id));
+        const drop = () => {
+            queue = queue.filter((e) => !sent.has(e.event_id));
+            write(storage, QUEUE_KEY, queue);
+        };
+        // The page is going away: its answer may never be read, and a stored queue would send these
+        // again on the next page. A keepalive request is delivered anyway, so drop them now.
+        const unloading = keepalive && body.length < KEEPALIVE_BYTES;
+        if (unloading)
+            drop();
         let done = false;
         try {
             const res = await doFetch(endpoint, {
                 method: "POST",
                 headers: { "content-type": "application/json", "x-app-key": options.appKey },
                 body,
-                keepalive: keepalive && body.length < KEEPALIVE_BYTES,
+                keepalive: unloading,
                 credentials: "same-origin",
             });
             // A batch the Worker can never take is dropped; anything else is retried later.
@@ -166,13 +177,10 @@ export function telemetry(options) {
         catch {
             done = false;
         }
-        if (done) {
-            const sent = new Set(batch.map((e) => e.event_id));
-            queue = queue.filter((e) => !sent.has(e.event_id));
-            write(storage, QUEUE_KEY, queue);
-        }
+        if (done && !unloading)
+            drop();
         sending = false;
-        if (done && queue.length >= maxBatch)
+        if ((done || unloading) && queue.length > 0 && (unloading || queue.length >= maxBatch))
             await flush(keepalive);
     }
     const errorParams = (error) => {
