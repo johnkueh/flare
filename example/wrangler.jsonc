@@ -24,5 +24,13 @@
   // flags.json's flags, in a Flagship app. Locally (`pnpm dev`) they come from
   // wrangler's local store: `pnpm flags:local` creates them there.
   "flagship": [{ "binding": "FLAGS", "app_id": "flare-example" }],
+  // Push notifications (@flare/push): notify() queues, the queue() handler sends.
+  // APNS_KEY_P8, APNS_KEY_ID, APNS_TEAM_ID and FCM_SERVICE_ACCOUNT are secrets and
+  // APNS_TOPICS a var (`flare-push setup` sets them); without them sends are
+  // logged as failed and dropped.
+  "queues": {
+    "producers": [{ "binding": "PUSH_QUEUE", "queue": "flare-example-push" }],
+    "consumers": [{ "queue": "flare-example-push", "max_batch_size": 100, "max_retries": 5 }]
+  },
   "d1_databases": [{ "binding": "DB", "database_name": "flare-example", "database_id": "00000000-0000-0000-0000-000000000000" }]
 }

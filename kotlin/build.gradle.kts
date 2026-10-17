@@ -62,6 +62,8 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
     api(libs.okhttp)
     api(libs.kotlinx.serialization.json)
+    // FlarePushMessagingService: only apps with push bring Firebase in.
+    compileOnly(libs.firebase.messaging)
     if (!localRust) implementation("com.johnkueh.sync:sync-ffi-native:$ffiVersion@aar")
 }
 

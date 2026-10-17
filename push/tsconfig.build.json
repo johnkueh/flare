@@ -1,0 +1,14 @@
+{
+  // `pnpm build`: plain JS and .d.ts in dist/, checked in, so the flare-push
+  // CLI runs straight from GitHub (Node won't strip types in node_modules).
+  // Workers keep importing src/.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "outDir": "dist",
+    "rootDir": "src",
+    "declaration": true,
+    "rewriteRelativeImportExtensions": true
+  },
+  "exclude": ["src/*.test.ts", "src/spaces.ts"]
+}

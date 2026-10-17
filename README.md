@@ -6,7 +6,7 @@
 Worker: phones work offline, share data with each other, and catch up the
 moment they're back online.
 
-Sync, auth, feature flags, product analytics and crash reporting, in one repo. Website: [flare.jkyf.dev](https://flare.jkyf.dev).
+Sync, auth, feature flags, push notifications, product analytics and crash reporting, in one repo. Website: [flare.jkyf.dev](https://flare.jkyf.dev).
 
 ## What you get
 
@@ -60,6 +60,7 @@ until someone syncs. Nothing to babysit.
 pnpm add "@sync/server@github:johnkueh/flare#0.5.0&path:/server"
 pnpm add "@flare/auth@github:johnkueh/flare#0.5.0&path:/auth"   # accounts (AUTH.md)
 pnpm add "@flare/flags@github:johnkueh/flare#0.5.0&path:/flags" # feature flags (FLAGS.md)
+pnpm add "@flare/push@github:johnkueh/flare#0.6.0&path:/push"   # push notifications (PUSH.md), from 0.6.0
 ```
 
 ```ts
@@ -93,4 +94,5 @@ try store.putDoc(collection: "groceries", doc: id, fieldsJson: #"{"name":"Milk"}
 - [PROTOCOL.md](PROTOCOL.md): the wire format, for anyone writing a client
 - [AUTH.md](AUTH.md): accounts on Better Auth, signing in from a phone
 - [FLAGS.md](FLAGS.md): feature flags on Cloudflare Flagship, for iOS, Android, web, Node and Rust
+- [PUSH.md](PUSH.md): push notifications to APNs and FCM from your Worker, and asking for permission gracefully
 - [TELEMETRY.md](TELEMETRY.md): product analytics and crash reporting into Cloudflare Basin, from a Rust SDK
