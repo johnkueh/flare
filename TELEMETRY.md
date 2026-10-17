@@ -62,6 +62,61 @@ Which events and params an app sends is the app's own contract.
 
 For a web page, post the same JSON from TypeScript; there is no WASM build.
 
+## Crashes, hangs and errors
+
+Problems are ordinary events, so they land in the same table and every app
+decides its own reporting (a digest, an alert, a dashboard) in SQL.
+
+| Event | When | Source |
+|---|---|---|
+| `crash` | the process died | iOS MetricKit; Android uncaught-exception handler, or ApplicationExitInfo for native crashes |
+| `hang` | the main thread was stuck | iOS MetricKit hang diagnostics; Android ANRs from ApplicationExitInfo |
+| `error` | caught, but worth counting | `client.report(...)`, `reportError`, Rust panics UniFFI turned into exceptions |
+
+Each one's params hold `type`, `message`, `frames` (innermost first: `module`,
+`function`, `file_line`, `offset`, `image_id`, `in_app`), `breadcrumbs` (the
+last 30 events before it), `from_previous_run`, and `crashed_version` /
+`crashed_build` when the OS says which build crashed. The Worker adds
+`fingerprint` (kind + type + the top three in-app frames, not the message)
+and a readable `title`, and trims to 30 frames.
+
+A crash found on the next launch is filed under the session it happened in
+and the time the OS gives, with the previous run's breadcrumbs. iOS frames
+are binary + offset (MetricKit has no symbols), so the same bug groups per
+build; symbolicate with `atos -o <dSYM> -l 0x0 <offset>` or `llvm-symbolizer`.
+MetricKit only reports for users who share analytics with app developers.
+
+There is no extra dependency. The platform code is two files to copy next to
+the generated bindings:
+
+- **Swift** `crates/telemetry/platform/swift/FlareCrashes.swift`, in the same
+  module as `telemetry_sdk.swift`: `FlareCrashes.start(client)` at launch,
+  `client.reportError(error)` for caught errors.
+- **Kotlin** `crates/telemetry/platform/kotlin/FlareCrashes.kt`:
+  `FlareCrashes.start(context, client)` in `Application.onCreate`,
+  `FlareCrashes.reportError(client, e)` for caught errors.
+
+Both install the Rust panic hook (`client.installPanicHook()`); other
+platforms can call it directly.
+
+```sql
+-- Problems by group, last 7 days
+SELECT name, json_get_str(params, 'fingerprint') AS fp, json_get_str(params, 'title') AS title,
+       COUNT(*) AS n, COUNT(DISTINCT install_id) AS installs, MAX(app_version) AS latest
+FROM telemetry.events
+WHERE app_id = 'glp3' AND env = 'prod' AND name IN ('crash', 'hang', 'error')
+  AND __ingest_ts >= '2026-10-10'
+GROUP BY 1, 2, 3 ORDER BY n DESC LIMIT 50
+
+-- Crash-free sessions by version
+SELECT app_version,
+       1 - COUNT(DISTINCT CASE WHEN name = 'crash' THEN session_id END) * 1.0
+         / COUNT(DISTINCT CASE WHEN name = 'session_start' THEN session_id END) AS crash_free
+FROM telemetry.events
+WHERE app_id = 'glp3' AND env = 'prod' AND __ingest_ts >= '2026-10-10'
+GROUP BY 1 ORDER BY 1 DESC LIMIT 20
+```
+
 ## The Worker (`telemetry/`)
 
 `handleEvents(request, env)` checks the `x-app-key` header against
