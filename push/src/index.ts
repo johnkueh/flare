@@ -26,7 +26,7 @@ export interface PushEnv {
   /** Where notify() puts messages. Without it they're sent right away. */
   PUSH_QUEUE?: Queue<PushMessage>;
   /** The APNs .p8 key's contents, its key id and your team id. */
-  APNS_KEY?: string;
+  APNS_KEY_P8?: string;
   APNS_KEY_ID?: string;
   APNS_TEAM_ID?: string;
   /** Comma-separated bundle ids (e.g. "com.example.app,com.example.app.dev"); the first is the default. */
@@ -205,7 +205,7 @@ export function flarePush<F extends NotificationsFile>(env: PushEnv, options: Fl
 
   function viaApns(message: PushMessage): Promise<SendResult> {
     const config = apnsConfig(env);
-    if (!config) return Promise.resolve({ status: "failed", reason: "APNs isn't configured (APNS_KEY, APNS_KEY_ID, APNS_TEAM_ID, APNS_TOPICS)" });
+    if (!config) return Promise.resolve({ status: "failed", reason: "APNs isn't configured (APNS_KEY_P8, APNS_KEY_ID, APNS_TEAM_ID, APNS_TOPICS)" });
     return sendApns(config, message, { fetch: options.fetch });
   }
 
@@ -252,9 +252,9 @@ function mutedChannels(row: TokenRow): string[] {
 }
 
 function apnsConfig(env: PushEnv): ApnsConfig | null {
-  if (!env.APNS_KEY || !env.APNS_KEY_ID || !env.APNS_TEAM_ID || !env.APNS_TOPICS) return null;
+  if (!env.APNS_KEY_P8 || !env.APNS_KEY_ID || !env.APNS_TEAM_ID || !env.APNS_TOPICS) return null;
   const topics = env.APNS_TOPICS.split(",").map((t) => t.trim()).filter(Boolean);
-  return { key: env.APNS_KEY, keyId: env.APNS_KEY_ID, teamId: env.APNS_TEAM_ID, topics };
+  return { key: env.APNS_KEY_P8, keyId: env.APNS_KEY_ID, teamId: env.APNS_TEAM_ID, topics };
 }
 
 function fcmAccount(env: PushEnv): FcmServiceAccount | null {

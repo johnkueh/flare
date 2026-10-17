@@ -28,10 +28,8 @@ public enum PushPermission: String, Sendable, Codable {
 ///
 /// ```swift
 /// let push = FlarePush(baseURL: api, tokens: auth)
-/// // AppDelegate:
-/// func application(_ app: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken token: Data) {
-///     Task { await push.didRegister(deviceToken: token) }
-/// }
+/// // The token and taps: @UIApplicationDelegateAdaptor(FlarePushAppDelegate.self),
+/// // with FlarePushAppDelegate.push = push.
 /// // On launch and whenever the scene becomes active:
 /// await push.refresh()
 /// ```
@@ -279,3 +277,64 @@ public final class FlarePush {
 
     private func key(_ suffix: String) -> String { "\(name).\(suffix)" }
 }
+
+#if canImport(UIKit)
+/// The app-delegate side of push, so an app doesn't write it:
+///
+/// ```swift
+/// @main struct MyApp: App {
+///     @UIApplicationDelegateAdaptor(FlarePushAppDelegate.self) var delegate
+///     init() {
+///         FlarePushAppDelegate.push = push
+///         FlarePushAppDelegate.onOpen = { key, data in router.open(key, data) }
+///     }
+/// }
+/// ```
+///
+/// It hands the APNs token to `push`, shows notifications that arrive while
+/// the app is open, and passes taps to `onOpen` (after `push.opened`
+/// records them). An app with its own delegate subclasses this one and
+/// calls `super` where it overrides.
+@MainActor
+open class FlarePushAppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
+    public static var push: FlarePush?
+    /// A tapped notification's key and data.
+    public static var onOpen: ((String, [String: String]) -> Void)?
+    /// How a notification shows while the app is open. Default: as a banner.
+    public static var foreground: UNNotificationPresentationOptions = [.banner, .list, .sound]
+
+    open func application(
+        _ application: UIApplication,
+        didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
+    ) -> Bool {
+        UNUserNotificationCenter.current().delegate = self
+        return true
+    }
+
+    open func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+        Task { await Self.push?.didRegister(deviceToken: deviceToken) }
+    }
+
+    open func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: any Error) {
+        // No token, usually the simulator without a signed-in Apple account or
+        // a missing aps-environment entitlement. refresh() asks again.
+    }
+
+    nonisolated open func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        willPresent notification: UNNotification
+    ) async -> UNNotificationPresentationOptions {
+        await MainActor.run { Self.foreground }
+    }
+
+    nonisolated open func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse) async {
+        let info = response.notification.request.content.userInfo
+        guard let key = info["key"] as? String else { return }
+        let data = info["data"] as? [String: String] ?? [:]
+        await MainActor.run {
+            _ = Self.push?.opened(["key": key, "data": data])
+            Self.onOpen?(key, data)
+        }
+    }
+}
+#endif

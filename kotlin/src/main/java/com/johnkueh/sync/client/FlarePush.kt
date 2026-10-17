@@ -10,10 +10,13 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.provider.Settings
 import java.util.Locale
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -48,15 +51,17 @@ enum class PushPermission(val wire: String) {
  * package's `FlarePush`.
  *
  * No UI and no Firebase dependency. The app keeps Firebase Messaging and
- * hands the token over; it shows its own inline ask where the feature
- * lives and launches the system dialog from its button:
+ * declares [FlarePushMessagingService], which hands tokens over and shows
+ * notifications that arrive while the app is open. It shows its own
+ * inline ask where the feature lives and launches the system dialog from
+ * its button:
  *
  * ```kotlin
  * val push = FlarePush(context, "https://api.example.com/v1", auth)
  * push.createChannels(context.assets.open("notifications.json").reader().readText())
  *
- * // FirebaseMessagingService.onNewToken, and once at launch:
- * scope.launch { push.setToken(FirebaseMessaging.getInstance().token.await()) }
+ * // At launch (FlarePushMessagingService handles new tokens after that):
+ * scope.launch { push.syncFcmToken() }
  *
  * // Compose
  * val launcher = rememberLauncherForActivityResult(RequestPermission()) { granted ->
@@ -86,6 +91,10 @@ class FlarePush(
     private val prefs = app.getSharedPreferences(name, Context.MODE_PRIVATE)
     private val manager = app.getSystemService(NotificationManager::class.java)
     private val state = MutableStateFlow(saved())
+
+    init {
+        installed = this
+    }
 
     /** The current state. */
     val permission: StateFlow<PushPermission> = state.asStateFlow()
@@ -223,6 +232,13 @@ class FlarePush(
         return key
     }
 
+    /** The same, from the intent a notification tap opened the app with
+     *  (its extras are the notification's data). */
+    fun opened(intent: Intent?): String? {
+        val extras = intent?.extras ?: return null
+        return opened(extras.keySet().mapNotNull { k -> extras.getString(k)?.let { k to it } }.toMap())
+    }
+
     /** Sends the token, permission and muted channels when one changed,
      *  or once a week so the server knows the device is still around. */
     private suspend fun upload() {
@@ -274,15 +290,31 @@ class FlarePush(
         onEvent?.invoke(event, params)
     }
 
-    private companion object {
-        val JSON = "application/json".toMediaType()
-        const val PERMISSION = "permission"
-        const val ASKED = "asked"
-        const val DENIED_FOR_GOOD = "deniedForGood"
-        const val SNOOZED_UNTIL = "snoozedUntil"
-        const val TOKEN = "token"
-        const val CHANNELS = "channels"
-        const val UPLOADED = "uploaded"
-        const val UPLOADED_AT = "uploadedAt"
+    companion object {
+        /** The last FlarePush made; [FlarePushMessagingService] hands it tokens. */
+        @Volatile
+        internal var installed: FlarePush? = null
+        private val background = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+        /** A new FCM token: uploaded now if a FlarePush exists, else kept for
+         *  its next refresh. */
+        internal fun receivedToken(context: Context, token: String, name: String = "flare.push") {
+            val push = installed
+            if (push != null) {
+                background.launch { runCatching { push.setToken(token) } }
+            } else {
+                context.getSharedPreferences(name, Context.MODE_PRIVATE).edit().putString(TOKEN, token).apply()
+            }
+        }
+
+        private val JSON = "application/json".toMediaType()
+        private const val PERMISSION = "permission"
+        private const val ASKED = "asked"
+        private const val DENIED_FOR_GOOD = "deniedForGood"
+        private const val SNOOZED_UNTIL = "snoozedUntil"
+        private const val TOKEN = "token"
+        private const val CHANNELS = "channels"
+        private const val UPLOADED = "uploaded"
+        private const val UPLOADED_AT = "uploadedAt"
     }
 }

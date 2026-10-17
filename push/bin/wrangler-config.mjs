@@ -104,3 +104,33 @@ export function addVar(text, name, value) {
   if (name in (parseJsonc(text).vars ?? {})) throw new Error(`vars.${name} is already set`);
   return appendMember(text, masked, closingBrace(masked, at), name, value, "    ");
 }
+
+/** A .dev.vars (dotenv) file: KEY=value, with "quoted" values that may span
+ *  lines and use \n escapes. */
+export function parseDevVars(text) {
+  const vars = {};
+  const lines = text.split(/\r?\n/);
+  for (let n = 0; n < lines.length; n++) {
+    const m = /^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$/.exec(lines[n]);
+    if (!m) continue;
+    const [, key, rest] = m;
+    const quote = rest[0];
+    if (quote !== '"' && quote !== "'") {
+      vars[key] = rest.replace(/\s+#.*$/, "").trim();
+      continue;
+    }
+    let value = rest.slice(1);
+    while (!closes(value, quote) && n + 1 < lines.length) value += `\n${lines[++n]}`;
+    value = value.slice(0, value.lastIndexOf(quote));
+    vars[key] = quote === '"' ? value.replace(/\\n/g, "\n").replace(/\\"/g, '"').replace(/\\\\/g, "\\") : value;
+  }
+  return vars;
+}
+
+function closes(value, quote) {
+  for (let i = 0; i < value.length; i++) {
+    if (value[i] === "\\" && quote === '"') i++;
+    else if (value[i] === quote) return true;
+  }
+  return false;
+}

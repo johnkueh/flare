@@ -37,7 +37,7 @@ async function apnsKey() {
 async function fakePush(answer: () => Response = () => new Response(null, { status: 200 })) {
   const sent: string[] = [];
   const push = flarePush(
-    { ...env, PUSH_QUEUE: undefined, APNS_KEY: await apnsKey(), APNS_KEY_ID: "K", APNS_TEAM_ID: "T", APNS_TOPICS: "com.example.groceries" },
+    { ...env, PUSH_QUEUE: undefined, APNS_KEY_P8: await apnsKey(), APNS_KEY_ID: "K", APNS_TEAM_ID: "T", APNS_TOPICS: "com.example.groceries" },
     {
       notifications,
       log: () => {},

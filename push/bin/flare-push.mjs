@@ -4,18 +4,19 @@
 //   flare-push setup     wire this Worker for push; safe to rerun
 //   flare-push test      send one notification to a device, from this machine
 //
-// Run it next to the Worker's wrangler.jsonc. Secrets come from the
-// environment, so run it under your password manager, e.g.
-//   op run --env-file push.env -- npx flare-push setup
-// (setup writes push.env, the op:// references, the first time).
+// Run it next to the Worker's wrangler.jsonc. It doesn't set the Worker's
+// secrets: it lists them in "secrets.required" and says where each comes
+// from, and you set them the way you set your others. test reads them from
+// the environment or the Worker's .dev.vars.
 //
 // setup:
 //   --ios <ids>            bundle ids, comma-separated (APNS_TOPICS); the first is the default
 //   --android <package>    the Android package name
 //   --firebase <project>   the Firebase project id (default: FCM_SERVICE_ACCOUNT's)
 //   --google-services <path>  where google-services.json goes (default: android/app/ in the repo)
-//   --vault <name>         the 1Password vault push.env points at and new keys are saved to (default Vault)
-//   --app <NAME>           prefix of the per-app 1Password item (default: the Worker's name)
+//   --app <name>           the app's 1Password item, e.g. Cooked (default: the Worker's name);
+//                          a new FCM key is saved there as FCM_SERVICE_ACCOUNT
+//   --vault <name>         the 1Password vault (default Vault)
 //   --op <cmd>             the 1Password CLI (default op)
 //   --skip <steps>         any of worker,apple,firebase,secrets, comma-separated
 //   --env <name>           a wrangler environment
@@ -33,10 +34,10 @@ import { createSign } from "node:crypto";
 import http2 from "node:http2";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { addTopLevel, addVar, parseJsonc } from "./wrangler-config.mjs";
+import { addTopLevel, addVar, parseDevVars, parseJsonc } from "./wrangler-config.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const SECRETS = ["APNS_KEY", "APNS_KEY_ID", "APNS_TEAM_ID", "FCM_SERVICE_ACCOUNT"];
+const SECRETS = ["APNS_KEY_P8", "APNS_KEY_ID", "APNS_TEAM_ID", "FCM_SERVICE_ACCOUNT"];
 const STEPS = ["worker", "apple", "firebase", "secrets"];
 
 function fail(message) {
@@ -280,15 +281,38 @@ function googleServicesPath(args) {
   return null;
 }
 
-function opCreate(args, title, value) {
+const vaultOf = (args) => args.vault ?? "Vault";
+const itemOf = (args, ctx) => args.app ?? ctx.name;
+
+/** Saves `value` as field `field` of the app's 1Password item, making the
+ *  item if it isn't there. Returns an error message, or null. */
+function opSave(args, title, field, value) {
   const op = args.op ?? "op";
-  const item = { title, category: "API_CREDENTIAL", fields: [{ id: "credential", type: "CONCEALED", label: "credential", value }] };
-  const res = spawnSync(op, ["item", "create", "--vault", args.vault ?? "Vault", "--format", "json", "-"], {
-    input: JSON.stringify(item),
-    encoding: "utf8",
-    stdio: ["pipe", "ignore", "pipe"],
-  });
+  const vault = vaultOf(args);
+  const exists = spawnSync(op, ["item", "get", title, "--vault", vault], { stdio: "ignore" }).status === 0;
+  const res = exists
+    ? spawnSync(op, ["item", "edit", title, "--vault", vault, `${field}[concealed]=${value}`], { encoding: "utf8", stdio: ["ignore", "ignore", "pipe"] })
+    : spawnSync(op, ["item", "create", "--vault", vault, "--format", "json", "-"], {
+        input: JSON.stringify({ title, category: "API_CREDENTIAL", fields: [{ id: field, type: "CONCEALED", label: field, value }] }),
+        encoding: "utf8",
+        stdio: ["pipe", "ignore", "pipe"],
+      });
   return res.status === 0 ? null : (res.stderr || `${op} exited ${res.status}`).trim();
+}
+
+/** A secret from the environment, the Worker's .dev.vars, or the app's 1Password item. */
+function secretValue(args, ctx, name) {
+  if (process.env[name]) return process.env[name];
+  const dev = devVars();
+  if (dev[name]) return dev[name];
+  const item = name.startsWith("APNS_") ? "Apple Push" : itemOf(args, ctx);
+  const res = spawnSync(args.op ?? "op", ["read", `op://${vaultOf(args)}/${item}/${name}`], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
+  return res.status === 0 ? res.stdout.trim() : null;
+}
+
+function devVars() {
+  const file = join(process.cwd(), ".dev.vars");
+  return existsSync(file) ? parseDevVars(readFileSync(file, "utf8")) : {};
 }
 
 async function stepFirebase(args, ctx) {
@@ -296,7 +320,8 @@ async function stepFirebase(args, ctx) {
   if (!args.android) return skip("no Android package (pass --android to send to Android)");
   let account = null;
   try {
-    account = process.env.FCM_SERVICE_ACCOUNT ? JSON.parse(process.env.FCM_SERVICE_ACCOUNT) : null;
+    const saved = secretValue(args, ctx, "FCM_SERVICE_ACCOUNT");
+    account = saved ? JSON.parse(saved) : null;
   } catch {
     fail("FCM_SERVICE_ACCOUNT isn't JSON");
   }
@@ -323,57 +348,39 @@ async function stepFirebase(args, ctx) {
   const { accounts = [] } = await google(token, project, "GET", `https://iam.googleapis.com/v1/projects/${project}/serviceAccounts?pageSize=100`);
   const admin = accounts.find((a) => a.email.startsWith("firebase-adminsdk-"));
   if (!admin) return todo(`${project} has no firebase-adminsdk service account; make a key in Firebase → Project settings → Service accounts`);
-  const title = `${(args.app ?? ctx.name).toUpperCase().replace(/[^A-Z0-9]+/g, "_")}_FCM_SERVICE_ACCOUNT`;
-  if (args["dry-run"]) return todo(`would create a key for ${admin.email}, save it as ${title} in ${args.vault ?? "Vault"}, and set it on the Worker`);
+  const title = itemOf(args, ctx);
+  if (args["dry-run"]) return todo(`would create a key for ${admin.email} and save it as FCM_SERVICE_ACCOUNT in 1Password item "${title}" (${vaultOf(args)})`);
   const key = await google(token, project, "POST", `https://iam.googleapis.com/v1/${admin.name}/keys`, {});
   const json = Buffer.from(key.privateKeyData, "base64").toString("utf8");
-  const saved = opCreate(args, title, json);
+  const saved = opSave(args, title, "FCM_SERVICE_ACCOUNT", JSON.stringify(JSON.parse(json)));
   if (saved) {
     // Don't lose it: the key can't be downloaded again.
-    const file = join(process.cwd(), `${title}.json`);
+    const file = join(process.cwd(), "FCM_SERVICE_ACCOUNT.json");
     writeFileSync(file, json, { mode: 0o600 });
     chmodSync(file, 0o600);
     todo(`couldn't save it to 1Password (${saved}); it's in ${file}: store it, then delete the file`);
-  } else done(`created a key for ${admin.email} and saved it as ${title}`);
-  process.env.FCM_SERVICE_ACCOUNT = json;
-  ctx.fcmItem = title;
+  } else done(`created a key for ${admin.email} and saved it as FCM_SERVICE_ACCOUNT in "${title}"`);
 }
 
-// ── Secrets: from the environment to the Worker ─────────────────────────
-
-function writePushEnv(args, ctx) {
-  const file = join(process.cwd(), "push.env");
-  if (existsSync(file)) return;
-  const vault = args.vault ?? "Vault";
-  const fcm = ctx.fcmItem ?? `${(args.app ?? ctx.name).toUpperCase().replace(/[^A-Z0-9]+/g, "_")}_FCM_SERVICE_ACCOUNT`;
-  const text =
-    `# Where flare-push finds the push secrets: 1Password references, not values.\n` +
-    `#   op run --env-file push.env -- npx flare-push setup\n` +
-    `APNS_KEY=op://${vault}/APNS_KEY_P8/credential\n` +
-    `APNS_KEY_ID=op://${vault}/APNS_KEY_ID/credential\n` +
-    `APNS_TEAM_ID=op://${vault}/APNS_TEAM_ID/credential\n` +
-    `FCM_SERVICE_ACCOUNT=op://${vault}/${fcm}/credential\n`;
-  if (!args["dry-run"]) writeFileSync(file, text);
-  done(`${args["dry-run"] ? "would write" : "wrote"} push.env (references only: commit it)`);
-}
+// ── Secrets: listed in wrangler.jsonc, set by you ───────────────────────
 
 function stepSecrets(args, ctx) {
   step("Secrets");
-  writePushEnv(args, ctx);
-  const present = SECRETS.filter((s) => process.env[s]);
-  const missing = SECRETS.filter((s) => !process.env[s]);
-  for (const name of present) {
-    if (args["dry-run"]) {
-      todo(`would set ${name} on the Worker`);
-      continue;
-    }
-    const res = wrangler(["secret", "put", name], { env: args.env, input: process.env[name] });
-    if (res.ok) done(`set ${name}`);
-    else todo(`couldn't set ${name}: ${res.err.trim().split("\n").find((l) => /error/i.test(l)) ?? res.err.trim()}`);
+  const config = effective(parseJsonc(readFileSync(ctx.file, "utf8")), args.env);
+  const listed = config.secrets?.required ?? [];
+  const missing = SECRETS.filter((s) => !listed.includes(s));
+  if (missing.length === 0) done(`secrets.required lists ${SECRETS.join(", ")}`);
+  else if (config.secrets || args.env) todo(`add ${missing.map((s) => `"${s}"`).join(", ")} to ${args.env ? `env.${args.env}.` : ""}secrets.required`);
+  else {
+    if (!args["dry-run"]) writeFileSync(ctx.file, addTopLevel(readFileSync(ctx.file, "utf8"), "secrets", { required: SECRETS }));
+    done(`${args["dry-run"] ? "would list" : "listed"} the push secrets in secrets.required`);
   }
-  if (missing.length) {
-    todo(`not in the environment: ${missing.join(", ")}. Run under \`op run --env-file push.env --\` (iOS needs the APNS_ ones, Android FCM_SERVICE_ACCOUNT)`);
-  }
+  const vault = vaultOf(args);
+  todo(
+    `set them on the Worker (and in .dev.vars for flare-push test), the way you set your others:\n` +
+      `      APNS_KEY_P8, APNS_KEY_ID, APNS_TEAM_ID: the team's APNs key, its id and your team id (one for every app; 1Password ${vault} → "Apple Push")\n` +
+      `      FCM_SERVICE_ACCOUNT: the Firebase service account JSON (1Password ${vault} → "${itemOf(args, ctx)}")`,
+  );
 }
 
 async function setup(args) {
@@ -431,6 +438,7 @@ function devicesFromD1(args, config) {
 }
 
 async function test(args) {
+  for (const [k, v] of Object.entries(devVars())) process.env[k] ??= v;
   const dist = join(here, "../dist");
   const { sendApns } = await import(join(dist, "apns.js"));
   const { sendFcm } = await import(join(dist, "fcm.js"));
@@ -487,11 +495,11 @@ async function test(args) {
     };
     let result;
     if (t.platform === "ios") {
-      const { APNS_KEY, APNS_KEY_ID, APNS_TEAM_ID } = process.env;
-      if (!APNS_KEY || !APNS_KEY_ID || !APNS_TEAM_ID) result = { status: "failed", reason: "APNS_KEY, APNS_KEY_ID and APNS_TEAM_ID aren't in the environment" };
+      const { APNS_KEY_P8, APNS_KEY_ID, APNS_TEAM_ID } = process.env;
+      if (!APNS_KEY_P8 || !APNS_KEY_ID || !APNS_TEAM_ID) result = { status: "failed", reason: "APNS_KEY_P8, APNS_KEY_ID and APNS_TEAM_ID aren't in the environment or .dev.vars" };
       else if (!topics.length) result = { status: "failed", reason: "no bundle id (vars.APNS_TOPICS or --app-id)" };
-      else result = await sendApns({ key: APNS_KEY, keyId: APNS_KEY_ID, teamId: APNS_TEAM_ID, topics }, message, { fetch: h2fetch });
-    } else if (!account) result = { status: "failed", reason: "FCM_SERVICE_ACCOUNT isn't in the environment" };
+      else result = await sendApns({ key: APNS_KEY_P8, keyId: APNS_KEY_ID, teamId: APNS_TEAM_ID, topics }, message, { fetch: h2fetch });
+    } else if (!account) result = { status: "failed", reason: "FCM_SERVICE_ACCOUNT isn't in the environment or .dev.vars" };
     else result = await sendFcm(account, message);
 
     const where = `${t.platform}${t.apnsEnv && t.platform === "ios" ? ` ${t.apnsEnv}` : ""} ${t.device}`;
@@ -505,7 +513,7 @@ async function test(args) {
           : result.status === "gone"
             ? " (the token is dead; the Worker deletes it on its next send)"
             : /ProviderToken/.test(result.reason)
-              ? " (APNS_KEY, APNS_KEY_ID and APNS_TEAM_ID don't belong together)"
+              ? " (APNS_KEY_P8, APNS_KEY_ID and APNS_TEAM_ID don't belong together)"
               : "";
       console.log(`✗ ${where}: ${result.reason}${hint}`);
     }

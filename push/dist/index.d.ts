@@ -9,7 +9,7 @@ export interface PushEnv {
     /** Where notify() puts messages. Without it they're sent right away. */
     PUSH_QUEUE?: Queue<PushMessage>;
     /** The APNs .p8 key's contents, its key id and your team id. */
-    APNS_KEY?: string;
+    APNS_KEY_P8?: string;
     APNS_KEY_ID?: string;
     APNS_TEAM_ID?: string;
     /** Comma-separated bundle ids (e.g. "com.example.app,com.example.app.dev"); the first is the default. */

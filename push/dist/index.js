@@ -136,7 +136,7 @@ export function flarePush(env, options) {
     function viaApns(message) {
         const config = apnsConfig(env);
         if (!config)
-            return Promise.resolve({ status: "failed", reason: "APNs isn't configured (APNS_KEY, APNS_KEY_ID, APNS_TEAM_ID, APNS_TOPICS)" });
+            return Promise.resolve({ status: "failed", reason: "APNs isn't configured (APNS_KEY_P8, APNS_KEY_ID, APNS_TEAM_ID, APNS_TOPICS)" });
         return sendApns(config, message, { fetch: options.fetch });
     }
     function viaFcm(message) {
@@ -177,10 +177,10 @@ function mutedChannels(row) {
     }
 }
 function apnsConfig(env) {
-    if (!env.APNS_KEY || !env.APNS_KEY_ID || !env.APNS_TEAM_ID || !env.APNS_TOPICS)
+    if (!env.APNS_KEY_P8 || !env.APNS_KEY_ID || !env.APNS_TEAM_ID || !env.APNS_TOPICS)
         return null;
     const topics = env.APNS_TOPICS.split(",").map((t) => t.trim()).filter(Boolean);
-    return { key: env.APNS_KEY, keyId: env.APNS_KEY_ID, teamId: env.APNS_TEAM_ID, topics };
+    return { key: env.APNS_KEY_P8, keyId: env.APNS_KEY_ID, teamId: env.APNS_TEAM_ID, topics };
 }
 function fcmAccount(env) {
     if (!env.FCM_SERVICE_ACCOUNT)

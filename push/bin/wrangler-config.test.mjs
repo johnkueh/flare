@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { addTopLevel, addVar, maskComments, parseJsonc } from "./wrangler-config.mjs";
+import { addTopLevel, addVar, maskComments, parseDevVars, parseJsonc } from "./wrangler-config.mjs";
 
 const CONFIG = `{
   "name": "myapp", // the Worker
@@ -48,4 +48,18 @@ test("ignores keys nested deeper than the top level", () => {
   const out = addVar(text, "APNS_TOPICS", "a");
   assert.deepEqual(parseJsonc(out).vars, { APNS_TOPICS: "a" });
   assert.deepEqual(parseJsonc(out).env.staging.vars, { X: "1" });
+});
+
+test(".dev.vars: plain, quoted, multi-line and escaped values", () => {
+  const vars = parseDevVars(`A=plain # note
+B="one\\ntwo"
+C="-----BEGIN PRIVATE KEY-----
+abc
+-----END PRIVATE KEY-----"
+D='{"x":"y"}'
+`);
+  assert.equal(vars.A, "plain");
+  assert.equal(vars.B, "one\ntwo");
+  assert.equal(vars.C, "-----BEGIN PRIVATE KEY-----\nabc\n-----END PRIVATE KEY-----");
+  assert.equal(vars.D, '{"x":"y"}');
 });

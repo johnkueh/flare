@@ -53,7 +53,7 @@ pnpm add "@flare/push@github:johnkueh/flare#<tag>&path:/push"
 Then, next to the Worker's `wrangler.jsonc`:
 
 ```sh
-op run --env-file push.env -- npx flare-push setup --ios com.me.app --android com.me.app --firebase my-firebase-project
+npx flare-push setup --ios com.me.app --android com.me.app --firebase my-firebase-project --app MyApp
 ```
 
 It's safe to rerun, and `--dry-run` says what it would do. It:
@@ -61,36 +61,36 @@ It's safe to rerun, and `--dry-run` says what it would do. It:
 - **Worker**: adds the `PUSH_QUEUE` producer and consumer, `vars.APNS_TOPICS`
   (the bundle ids; the first is the default) and the `push_tokens`
   migration next to your others, and creates the queue. Apply the migration
-  as usual (`wrangler d1 migrations apply <db> --remote`).
+  as usual (`wrangler d1 migrations apply <db> --remote`). Comments in
+  `wrangler.jsonc` stay where they are.
 - **Apple**: turns on Push Notifications for each bundle id, with an App
-  Store Connect API key (`ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_KEY_FILEPATH`).
-  You still add the capability to the target in Xcode.
-- **Firebase**: registers the Android app in the project, writes
-  `google-services.json` to `android/app/` (it isn't a secret: commit it),
-  and, when `FCM_SERVICE_ACCOUNT` isn't set yet, creates a key for the
-  project's `firebase-adminsdk` service account and saves it to 1Password as
-  `<APP>_FCM_SERVICE_ACCOUNT`. It uses `gcloud`'s sign-in.
-- **Secrets**: sets `APNS_KEY`, `APNS_KEY_ID`, `APNS_TEAM_ID` and
-  `FCM_SERVICE_ACCOUNT` on the Worker from the environment.
+  Store Connect API key (`ASC_KEY_ID`, `ASC_ISSUER_ID`, and `ASC_KEY_FILEPATH`
+  or `ASC_KEY`). You still add the capability to the target in Xcode.
+- **Firebase**: registers the Android app in the project and writes
+  `google-services.json` to `android/app/` (it isn't a secret: commit it).
+  When the app has no FCM key yet, it creates one for the project's
+  `firebase-adminsdk` service account and saves it as the
+  `FCM_SERVICE_ACCOUNT` field of the app's 1Password item (`--app`, in
+  `--vault`, default Vault). It uses `gcloud`'s sign-in.
+- **Secrets**: lists the four in `secrets.required` and says where each
+  comes from. It doesn't set them: do that the way you set the Worker's
+  other secrets.
 
-The secrets live in your password manager, never in the repo or a `.env`.
-The first run writes `push.env`, which holds only references (commit it):
+| Secret | What | Where it lives |
+| --- | --- | --- |
+| `APNS_KEY_P8` | the APNs key's .p8 contents | 1Password item "Apple Push" |
+| `APNS_KEY_ID` | the key's 10-character id | "Apple Push" |
+| `APNS_TEAM_ID` | your Apple team id | "Apple Push" |
+| `FCM_SERVICE_ACCOUNT` | the Firebase service account JSON | the app's own item |
 
-```sh
-APNS_KEY=op://Vault/APNS_KEY_P8/credential
-APNS_KEY_ID=op://Vault/APNS_KEY_ID/credential
-APNS_TEAM_ID=op://Vault/APNS_TEAM_ID/credential
-FCM_SERVICE_ACCOUNT=op://Vault/MYAPP_FCM_SERVICE_ACCOUNT/credential
-```
-
-One APNs key (.p8) serves every app on your Apple team, for sandbox and
-production: make it once (developer portal → Keys → Apple Push
-Notifications service) and save its contents, id and your team id in those
-three items. Each app has its own Firebase project and service account key.
-Rotating either is: update the item, rerun `flare-push setup`.
+One APNs key serves every app on your Apple team, for sandbox and
+production. Make it once (developer portal → Keys → Apple Push
+Notifications service; Apple lets you download it only once) and save it in
+"Apple Push". Each app has its own Firebase project and key. Put the same
+four in `.dev.vars` for `wrangler dev` and `flare-push test`.
 
 By hand instead: add `push/migrations/push_tokens.sql` to your D1
-migrations, the queue below, and the secrets.
+migrations, then the queue and the secrets:
 
 ```jsonc
 // wrangler.jsonc
@@ -98,12 +98,13 @@ migrations, the queue below, and the secrets.
   "producers": [{ "binding": "PUSH_QUEUE", "queue": "myapp-push" }],
   "consumers": [{ "queue": "myapp-push", "max_batch_size": 100, "max_retries": 5 }]
 },
-"vars": { "APNS_TOPICS": "com.me.app,com.me.app.dev" }
+"vars": { "APNS_TOPICS": "com.me.app,com.me.app.dev" },
+"secrets": { "required": ["APNS_KEY_P8", "APNS_KEY_ID", "APNS_TEAM_ID", "FCM_SERVICE_ACCOUNT"] }
 ```
 
 ```sh
 wrangler queues create myapp-push
-wrangler secret put APNS_KEY             # the .p8 file's contents
+wrangler secret put APNS_KEY_P8          # the .p8 file's contents
 wrangler secret put APNS_KEY_ID          # the key's 10-character id
 wrangler secret put APNS_TEAM_ID
 wrangler secret put FCM_SERVICE_ACCOUNT  # the Firebase service account JSON
@@ -160,11 +161,12 @@ reach Apple because Cloudflare's proxy upgrades the request
 ### Sending yourself one: `flare-push test`
 
 `flare-push test` sends from your machine with the same code, so it also
-reaches APNs while you develop:
+reaches APNs while you develop. It reads the secrets from the environment or
+the Worker's `.dev.vars`:
 
 ```sh
-op run --env-file push.env -- npx flare-push test --member <your user id> --key item_added --data actor=Sam --data item=milk
-op run --env-file push.env -- npx flare-push test --token <token> --platform ios --sandbox --app-id com.me.app
+npx flare-push test --member <your user id> --key item_added --data actor=Sam --data item=milk
+npx flare-push test --token <token> --platform ios --sandbox --app-id com.me.app
 ```
 
 `--member` and `--device` read the tokens from the Worker's remote D1;
@@ -211,17 +213,26 @@ skips blocked devices, and devices with that channel switched off.
 let push = FlarePush(baseURL: URL(string: "https://api.example.com/v1")!, tokens: auth,
                      onEvent: { name, params in telemetry.track(name: name, params: params) })
 
-// AppDelegate
-func application(_ app: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken token: Data) {
-    Task { await push.didRegister(deviceToken: token) }
-}
-func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse) async {
-    if let tap = await push.opened(response.notification.request.content.userInfo) { route(tap.key, tap.data) }
-}
+@main struct MyApp: App {
+    // Hands over the APNs token, shows notifications while the app is
+    // open, and passes taps on.
+    @UIApplicationDelegateAdaptor(FlarePushAppDelegate.self) var delegate
+    @Environment(\.scenePhase) private var phase
 
-// On launch, and when the scene becomes active
-await push.refresh()
+    init() {
+        FlarePushAppDelegate.push = push
+        FlarePushAppDelegate.onOpen = { key, data in router.open(key, data) }
+    }
+
+    var body: some Scene {
+        WindowGroup { ContentView() }
+            .onChange(of: phase) { _, now in if now == .active { Task { await push.refresh() } } }
+    }
+}
 ```
+
+An app with its own app delegate subclasses `FlarePushAppDelegate` and
+calls `super` in the methods it overrides.
 
 The inline ask, in SwiftUI:
 
@@ -246,19 +257,32 @@ if push.canAsk {
 
 ## Android
 
-`FlarePush` is in `com.johnkueh.sync.client`. The app keeps Firebase
-Messaging (`google-services.json`, `firebase-messaging`) and declares
-`<uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>`.
+`FlarePush` is in `com.johnkueh.sync.client`. The app adds Firebase
+Messaging (the `com.google.gms.google-services` plugin, `google-services.json`
+and `com.google.firebase:firebase-messaging`) and declares Flare's messaging
+service, which uploads new tokens and shows notifications that arrive while
+the app is open:
+
+```xml
+<!-- AndroidManifest.xml -->
+<uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+<service android:name="com.johnkueh.sync.client.FlarePushMessagingService" android:exported="false">
+    <intent-filter><action android:name="com.google.firebase.MESSAGING_EVENT"/></intent-filter>
+</service>
+```
 
 ```kotlin
 val push = FlarePush(context, "https://api.example.com/v1", auth, onEvent = { name, params -> telemetry.track(name, params) })
 push.createChannels(context.assets.open("notifications.json").reader().readText())
 
-// At launch, and in FirebaseMessagingService.onNewToken
-push.setToken(FirebaseMessaging.getInstance().token.await())
+// At launch
+scope.launch { push.syncFcmToken() }
 
 // onResume
 push.refresh(activity)
+
+// A tap opens the launch activity with the notification's key and data as extras
+push.opened(intent)?.let { key -> route(key, intent.extras) }
 ```
 
 The inline ask, in Compose:
