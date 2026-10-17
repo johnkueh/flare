@@ -50,14 +50,55 @@ Every kind of notification the app sends, in one file next to `flags.json`:
 pnpm add "@flare/push@github:johnkueh/flare#<tag>&path:/push"
 ```
 
-Add `push/migrations/push_tokens.sql` to your D1 migrations, then a queue:
+Then, next to the Worker's `wrangler.jsonc`:
+
+```sh
+op run --env-file push.env -- npx flare-push setup --ios com.me.app --android com.me.app --firebase my-firebase-project
+```
+
+It's safe to rerun, and `--dry-run` says what it would do. It:
+
+- **Worker**: adds the `PUSH_QUEUE` producer and consumer, `vars.APNS_TOPICS`
+  (the bundle ids; the first is the default) and the `push_tokens`
+  migration next to your others, and creates the queue. Apply the migration
+  as usual (`wrangler d1 migrations apply <db> --remote`).
+- **Apple**: turns on Push Notifications for each bundle id, with an App
+  Store Connect API key (`ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_KEY_FILEPATH`).
+  You still add the capability to the target in Xcode.
+- **Firebase**: registers the Android app in the project, writes
+  `google-services.json` to `android/app/` (it isn't a secret: commit it),
+  and, when `FCM_SERVICE_ACCOUNT` isn't set yet, creates a key for the
+  project's `firebase-adminsdk` service account and saves it to 1Password as
+  `<APP>_FCM_SERVICE_ACCOUNT`. It uses `gcloud`'s sign-in.
+- **Secrets**: sets `APNS_KEY`, `APNS_KEY_ID`, `APNS_TEAM_ID` and
+  `FCM_SERVICE_ACCOUNT` on the Worker from the environment.
+
+The secrets live in your password manager, never in the repo or a `.env`.
+The first run writes `push.env`, which holds only references (commit it):
+
+```sh
+APNS_KEY=op://Vault/APNS_KEY_P8/credential
+APNS_KEY_ID=op://Vault/APNS_KEY_ID/credential
+APNS_TEAM_ID=op://Vault/APNS_TEAM_ID/credential
+FCM_SERVICE_ACCOUNT=op://Vault/MYAPP_FCM_SERVICE_ACCOUNT/credential
+```
+
+One APNs key (.p8) serves every app on your Apple team, for sandbox and
+production: make it once (developer portal → Keys → Apple Push
+Notifications service) and save its contents, id and your team id in those
+three items. Each app has its own Firebase project and service account key.
+Rotating either is: update the item, rerun `flare-push setup`.
+
+By hand instead: add `push/migrations/push_tokens.sql` to your D1
+migrations, the queue below, and the secrets.
 
 ```jsonc
 // wrangler.jsonc
 "queues": {
   "producers": [{ "binding": "PUSH_QUEUE", "queue": "myapp-push" }],
   "consumers": [{ "queue": "myapp-push", "max_batch_size": 100, "max_retries": 5 }]
-}
+},
+"vars": { "APNS_TOPICS": "com.me.app,com.me.app.dev" }
 ```
 
 ```sh
@@ -65,7 +106,6 @@ wrangler queues create myapp-push
 wrangler secret put APNS_KEY             # the .p8 file's contents
 wrangler secret put APNS_KEY_ID          # the key's 10-character id
 wrangler secret put APNS_TEAM_ID
-wrangler secret put APNS_TOPICS          # bundle ids, comma-separated: com.me.app,com.me.app.dev
 wrangler secret put FCM_SERVICE_ACCOUNT  # the Firebase service account JSON
 ```
 
@@ -115,8 +155,22 @@ export default {
 **APNs needs HTTP/2.** workerd itself doesn't speak it. Deployed Workers
 reach Apple because Cloudflare's proxy upgrades the request
 ([workerd#4841](https://github.com/cloudflare/workerd/issues/4841)), but
-`wrangler dev` can't reach APNs. Test iOS pushes against a deployed Worker.
-FCM works from both.
+`wrangler dev` can't reach APNs. FCM works from both.
+
+### Sending yourself one: `flare-push test`
+
+`flare-push test` sends from your machine with the same code, so it also
+reaches APNs while you develop:
+
+```sh
+op run --env-file push.env -- npx flare-push test --member <your user id> --key item_added --data actor=Sam --data item=milk
+op run --env-file push.env -- npx flare-push test --token <token> --platform ios --sandbox --app-id com.me.app
+```
+
+`--member` and `--device` read the tokens from the Worker's remote D1;
+`--token` takes one straight from a log. Builds from Xcode have sandbox
+tokens. It says why a send failed (a dead token, a sandbox token sent to
+production, a key that doesn't match its id or team).
 
 ## Asking for permission
 
