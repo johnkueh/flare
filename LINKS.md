@@ -61,7 +61,7 @@ both apps read:
 ## The Worker
 
 ```sh
-pnpm add "@flare/links@github:johnkueh/flare#0.6.0&path:/links"
+pnpm add "@flare/links@github:johnkueh/flare#0.6.1&path:/links"
 ```
 
 ```ts

@@ -149,6 +149,32 @@ def icon_push():
         body += f'<rect x="{x}" y="{y}" width="1" height="1" fill="{PAL["O"]}" class="dot" style="--i:{k % 3}"/>'
     return svg(24, 16, body, "A ringing bell with a badge", ANIM)
 
+def ring(x0, y0, w, h, fill):
+    """A rounded loop two pixels thick: one link of a chain."""
+    out = []
+    for y in range(h):
+        for x in range(w):
+            corner = (x in (0, w - 1)) and (y in (0, h - 1))
+            edge = x < 2 or x >= w - 2 or y < 2 or y >= h - 2
+            if edge and not corner:
+                out.append((x0 + x, y0 + y, fill))
+    return out
+
+def icon_links():
+    # Two chain links, the right one passing through the left.
+    px = {}
+    for x, y, f in ring(2, 4, 12, 8, PAL["O"]):
+        px[(x, y)] = f
+    for x, y, f in ring(10, 4, 12, 8, PAL["D"]):
+        px[(x, y)] = f
+    # Over at the top, under at the bottom: the left link's right side wins below the middle.
+    for x, y, f in ring(2, 4, 12, 8, PAL["O"]):
+        if x >= 12 and y >= 8:
+            px[(x, y)] = f
+    body = "".join(f'<rect x="{x}" y="{y}" width="1" height="1" fill="{f}"/>' for (x, y), f in sorted(px.items()))
+    body += f'<rect x="4" y="6" width="2" height="1" fill="{PAL["Y"]}"/>'
+    return svg(24, 16, body, "Two chain links")
+
 def favicon():
     return svg(10, 14, rects(FLAME_A, 0, 0), "Flare")
 
@@ -156,6 +182,7 @@ if __name__ == "__main__":
     OUT.mkdir(parents=True, exist_ok=True)
     for name, s in {"hero.svg": hero(), "sync.svg": icon_sync(), "auth.svg": icon_auth(),
                     "analytics.svg": icon_analytics(), "flags.svg": icon_flags(), "push.svg": icon_push(),
+                    "links.svg": icon_links(),
                     "flame.svg": favicon()}.items():
         (OUT / name).write_text(s)
         print(name, len(s))

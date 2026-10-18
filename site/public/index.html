@@ -4,9 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Flare: your apps' backend, on Cloudflare</title>
-<meta name="description" content="Offline-first sync, auth, feature flags, push notifications, analytics and crash reporting for iOS, Android and web, from one Rust core and your own Cloudflare Worker.">
+<meta name="description" content="Offline-first sync, auth, feature flags, push notifications, links that survive an install, analytics and crash reporting for iOS, Android and web, from one Rust core and your own Cloudflare Worker.">
 <meta property="og:title" content="Flare: your apps' backend, on Cloudflare">
-<meta property="og:description" content="Offline-first sync, auth, feature flags, push notifications, analytics and crash reporting for iOS, Android and web, from one Rust core and your own Cloudflare Worker.">
+<meta property="og:description" content="Offline-first sync, auth, feature flags, push notifications, links that survive an install, analytics and crash reporting for iOS, Android and web, from one Rust core and your own Cloudflare Worker.">
 <meta property="og:image" content="https://flare.jkyf.dev/og.png">
 <meta property="og:url" content="https://flare.jkyf.dev">
 <meta name="twitter:card" content="summary_large_image">
@@ -151,7 +151,7 @@ footer a:hover{color:var(--ink)}
     <div>
       <p class="eyebrow">Open source · Rust · Cloudflare</p>
       <h1>Your apps' backend, on <em>Cloudflare</em>.</h1>
-      <p class="lede">Like Firebase, but it's your own Worker. Phones work offline, share data with each other, sign in, get notified and report analytics and crashes, from one Rust core on iOS, Android and the web.</p>
+      <p class="lede">Like Firebase, but it's your own Worker. Phones work offline, share data with each other, sign in, open from a shared link, get notified and report analytics and crashes, from one Rust core on iOS, Android and the web.</p>
       <div class="actions">
         <a class="btn" href="https://github.com/johnkueh/flare">
           <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
@@ -160,7 +160,7 @@ footer a:hover{color:var(--ink)}
         <a class="btn ghost" href="#add">Add it to an app</a>
       </div>
       <div class="install">
-        <code id="install">pnpm add "@sync/server@github:johnkueh/flare#0.5.0&amp;path:/server"</code>
+        <code id="install">pnpm add "@sync/server@github:johnkueh/flare#0.6.1&amp;path:/server"</code>
         <button class="copy" type="button" data-copy="install">Copy</button>
       </div>
     </div>
@@ -170,9 +170,9 @@ footer a:hover{color:var(--ink)}
   <section id="pieces" class="band">
     <div class="wrap">
       <div class="head">
-        <p class="eyebrow">Five pieces</p>
+        <p class="eyebrow">Six pieces</p>
         <h2>Everything an app needs from a server.</h2>
-        <p>Use one or all five. Each is a package you add to your own Worker, with a small Swift and Kotlin side.</p>
+        <p>Use one or all six. Each is a package you add to your own Worker, with a small Swift and Kotlin side.</p>
       </div>
       <div class="cards">
         <article class="card">
@@ -218,6 +218,17 @@ footer a:hover{color:var(--ink)}
             <li>Permission states for a polite ask, no UI imposed</li>
           </ul>
           <a class="more" href="https://github.com/johnkueh/flare/blob/main/PUSH.md">Read PUSH.md →</a>
+        </article>
+        <article class="card">
+          <img class="pixel" src="/art/links.svg" alt="">
+          <h3>Links</h3>
+          <p>A shared link opens the app on the right screen, and still gets there when the app has to be installed first. Your Worker serves it all. No Branch, no AppsFlyer.</p>
+          <ul>
+            <li>Universal Links and App Links, plus a landing page</li>
+            <li>Through an install: Play referrer, one paste on iPhone</li>
+            <li>One command each for Apple's and Play's setup</li>
+          </ul>
+          <a class="more" href="https://github.com/johnkueh/flare/blob/main/LINKS.md">Read LINKS.md →</a>
         </article>
         <article class="card">
           <img class="pixel" src="/art/analytics.svg" alt="">
@@ -267,6 +278,10 @@ footer a:hover{color:var(--ink)}
         <img class="pixel" src="/art/push.svg" alt="" style="width:36px;height:24px">
         <div><b>Push without a push service.</b> Knock and OneSignal hold your users' tokens and send for you; they still need your Apple key and Firebase project. Flare keeps the tokens in your D1 and sends from your Worker, through a Queue that retries and drops dead tokens. One command sets up the queue, the Apple capability and Firebase. <a href="https://github.com/johnkueh/flare/blob/main/PUSH.md">How it works →</a></div>
       </div>
+      <div class="mozilla">
+        <img class="pixel" src="/art/links.svg" alt="" style="width:36px;height:24px">
+        <div><b>Deep links without Branch.</b> Branch and AppsFlyer carry a link through an install by matching the phone's IP address and model before and after. On iPhone that's a guess, since Private Relay hides the address, and Apple discourages it. Flare uses what each store gives you instead: Google Play hands the link to the app through its install referrer, and on iPhone the landing page copies the link for Apple's paste button on the first screen. <a href="https://github.com/johnkueh/flare/blob/main/LINKS.md">How it works →</a></div>
+      </div>
     </div>
   </section>
 
@@ -283,13 +298,14 @@ footer a:hover{color:var(--ink)}
         <button class="tab" role="tab" aria-selected="false" aria-controls="p-android" id="t-android" type="button">Android</button>
         <button class="tab" role="tab" aria-selected="false" aria-controls="p-flags" id="t-flags" type="button">Flags</button>
         <button class="tab" role="tab" aria-selected="false" aria-controls="p-push" id="t-push" type="button">Push</button>
+        <button class="tab" role="tab" aria-selected="false" aria-controls="p-links" id="t-links" type="button">Links</button>
         <button class="tab" role="tab" aria-selected="false" aria-controls="p-analytics" id="t-analytics" type="button">Analytics</button>
       </div>
       <div class="panel" role="tabpanel" id="p-worker" aria-labelledby="t-worker">
 <pre><span class="c"># Sync, plus accounts and flags if you want them</span>
-pnpm add <span class="s">"@sync/server@github:johnkueh/flare#0.5.0&amp;path:/server"</span>
-pnpm add <span class="s">"@flare/auth@github:johnkueh/flare#0.5.0&amp;path:/auth"</span>
-pnpm add <span class="s">"@flare/flags@github:johnkueh/flare#0.5.0&amp;path:/flags"</span>
+pnpm add <span class="s">"@sync/server@github:johnkueh/flare#0.6.1&amp;path:/server"</span>
+pnpm add <span class="s">"@flare/auth@github:johnkueh/flare#0.6.1&amp;path:/auth"</span>
+pnpm add <span class="s">"@flare/flags@github:johnkueh/flare#0.6.1&amp;path:/flags"</span>
 
 <span class="c">// src/index.ts</span>
 <span class="k">export</span> { SpaceObject } <span class="k">from</span> <span class="s">"@sync/server/space"</span>;</pre>
@@ -309,7 +325,7 @@ maven(<span class="s">"https://jitpack.io"</span>)
 maven(<span class="s">"https://pub-796846793f3e431ab3a92e0577c57dde.r2.dev/maven"</span>)
 
 <span class="c">// app/build.gradle.kts</span>
-implementation(<span class="s">"com.github.johnkueh:flare:0.5.0"</span>)</pre>
+implementation(<span class="s">"com.github.johnkueh:flare:0.6.1"</span>)</pre>
         <p>Then the same calls as iOS, in Kotlin. <a href="https://github.com/johnkueh/flare/blob/main/SYNC.md">Full setup →</a></p>
       </div>
       <div class="panel" role="tabpanel" id="p-flags" aria-labelledby="t-flags" hidden>
@@ -344,9 +360,25 @@ ctx.waitUntil(notifySpace(env, push, spaceId, { from: userId }, <span class="s">
 Button(<span class="s">"Turn on"</span>) { Task { <span class="k">await</span> push.request() } }</pre>
         <p>Android declares one service and uses the same calls. <code>flare-push test</code> sends one to your phone. <a href="https://github.com/johnkueh/flare/blob/main/PUSH.md">Full setup →</a></p>
       </div>
+      <div class="panel" role="tabpanel" id="p-links" aria-labelledby="t-links" hidden>
+<pre><span class="c">// links.json, shared by the Worker and the apps</span>
+{ <span class="s">"domain"</span>: <span class="s">"example.com"</span>, <span class="s">"scheme"</span>: <span class="s">"groceries"</span>,
+  <span class="s">"links"</span>: { <span class="s">"invite"</span>: { <span class="s">"path"</span>: <span class="s">"/j/:code"</span>, <span class="s">"deferred"</span>: <span class="k">true</span> } } }
+
+<span class="c">// Worker: association files and a landing page per link</span>
+<span class="k">const</span> res = <span class="k">await</span> flareLinks(links, { describe }).http(request);
+
+<span class="c">// Swift</span>
+.onOpenURL { <span class="k">if let</span> link = links.opened($0) { router.open(link) } }
+PasteLinkButton(links) { router.open($0) } <span class="c">// first screen, after an install</span>
+
+<span class="c">// Kotlin</span>
+links.claimDeferred()?.let(router::open) <span class="c">// Play's install referrer</span></pre>
+        <p><code>npx flare-links setup</code> walks through the rest, <code>apple</code> and <code>play-sha</code> do the Apple and Play setup, and <code>check</code> tests the live domain. <a href="https://github.com/johnkueh/flare/blob/main/LINKS.md">Full setup →</a></p>
+      </div>
       <div class="panel" role="tabpanel" id="p-analytics" aria-labelledby="t-analytics" hidden>
 <pre><span class="c"># your-core/Cargo.toml</span>
-telemetry-sdk = { git = <span class="s">"https://github.com/johnkueh/flare"</span>, tag = <span class="s">"0.5.0"</span>, features = [<span class="s">"uniffi"</span>] }
+telemetry-sdk = { git = <span class="s">"https://github.com/johnkueh/flare"</span>, tag = <span class="s">"0.6.1"</span>, features = [<span class="s">"uniffi"</span>] }
 
 <span class="c">// Swift</span>
 <span class="k">let</span> client = <span class="k">try</span> TelemetryClient(config: config)
