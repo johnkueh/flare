@@ -69,24 +69,26 @@ It's safe to rerun, and `--dry-run` says what it would do. It:
 - **Firebase**: registers the Android app in the project and writes
   `google-services.json` to `android/app/` (it isn't a secret: commit it).
   When the app has no FCM key yet, it creates one for the project's
-  `firebase-adminsdk` service account and saves it as the
-  `FCM_SERVICE_ACCOUNT` field of the app's 1Password item (`--app`, in
-  `--vault`, default Vault). It uses `gcloud`'s sign-in.
+  `firebase-adminsdk` service account and writes it to
+  `FCM_SERVICE_ACCOUNT.json` (or `--fcm-key <path>`), readable only by you.
+  Set it with `wrangler secret put FCM_SERVICE_ACCOUNT < FCM_SERVICE_ACCOUNT.json`,
+  keep a copy wherever you keep secrets, and delete the file. It uses
+  `gcloud`'s sign-in.
 - **Secrets**: lists the four in `secrets.required` and says where each
   comes from. It doesn't set them: do that the way you set the Worker's
   other secrets.
 
-| Secret | What | Where it lives |
+| Secret | What | Where you get it |
 | --- | --- | --- |
-| `APNS_KEY_P8` | the APNs key's .p8 contents | 1Password item "Apple Push" |
-| `APNS_KEY_ID` | the key's 10-character id | "Apple Push" |
-| `APNS_TEAM_ID` | your Apple team id | "Apple Push" |
-| `FCM_SERVICE_ACCOUNT` | the Firebase service account JSON | the app's own item |
+| `APNS_KEY_P8` | the APNs key's .p8 contents | developer portal → Keys |
+| `APNS_KEY_ID` | the key's 10-character id | the same page |
+| `APNS_TEAM_ID` | your Apple team id | developer portal → Membership |
+| `FCM_SERVICE_ACCOUNT` | the Firebase service account JSON | `flare-push setup`, or Firebase → Project settings → Service accounts |
 
 One APNs key serves every app on your Apple team, for sandbox and
 production. Make it once (developer portal → Keys → Apple Push
-Notifications service; Apple lets you download it only once) and save it in
-"Apple Push". Each app has its own Firebase project and key. Put the same
+Notifications service; Apple lets you download it only once) and keep it
+somewhere safe. Each app has its own Firebase project and key. Put the same
 four in `.dev.vars` for `wrangler dev` and `flare-push test`.
 
 By hand instead: add `push/migrations/push_tokens.sql` to your D1

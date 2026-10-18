@@ -55,8 +55,8 @@ Swift: copy `telemetry_sdk.swift` next to your bindings and add
 
 ```swift
 let client = try TelemetryClient(config: TelemetryConfig(
-    endpoint: "https://flare-telemetry.your-subdomain.workers.dev/v1/events",
-    appKey: "k_…", appId: "glp3", env: "prod", platform: "ios",
+    endpoint: "https://<your telemetry Worker>/v1/events",
+    appKey: "k_…", appId: "myapp", env: "prod", platform: "ios",
     appVersion: "2.0", appBuild: "42", osVersion: "26.0", deviceModel: "iPhone17,1",
     locale: "en_AU", storageDir: supportDir.path,
     flushIntervalSecs: 30, maxBatchSize: 50, maxQueueSize: 5000))
@@ -136,8 +136,8 @@ or the table.
 
 Once per account: `npx wrangler r2 bucket create flare-symbols`.
 
-After each release build, upload its symbols (`CLOUDFLARE_API_TOKEN` from the
-Vault 1Password item, as for any wrangler command):
+After each release build, upload its symbols (with the `CLOUDFLARE_API_TOKEN`
+you use for any wrangler command):
 
 ```sh
 npx flare-telemetry symbols build/Cooked.xcarchive        # or a .dSYM, or a folder of them
@@ -154,7 +154,8 @@ column). For line numbers on Android, keep them in `proguard-rules.pro`:
 ```
 
 Then read crashes (with `WRANGLER_BASIN_SQL_AUTH_TOKEN`, or the same
-`CLOUDFLARE_API_TOKEN`):
+`CLOUDFLARE_API_TOKEN`, and `FLARE_TELEMETRY_WAREHOUSE` set to your Basin
+warehouse, `<account id>_telemetry`; see "Querying"):
 
 ```sh
 npx flare-telemetry crash --app cooked                    # groups, last 7 days (--days, --env)
@@ -190,8 +191,9 @@ npx flare-telemetry init --app ledgersignal
 
 `init` writes `events.json`, binds the shared Worker in `wrangler.jsonc` as
 `TELEMETRY` (a service binding, so no public hop), and prints an app key
-and the code below. Add the key to `APP_KEYS` in `telemetry/wrangler.jsonc`
-here and deploy. `npx flare-telemetry check` in CI keeps `events.json` to
+and the code below. Add the key to `APP_KEYS` in your telemetry Worker's
+`wrangler.jsonc` and deploy it. `--service <name>` binds a Worker not named
+`flare-telemetry`. `npx flare-telemetry check` in CI keeps `events.json` to
 the naming rules.
 
 ### events.json
@@ -279,7 +281,7 @@ To backfill (the API keeps 16 months), set `GSC_ADMIN_TOKEN` and post a day
 at a time:
 
 ```sh
-curl -X POST https://flare-telemetry.your-subdomain.workers.dev/v1/gsc/pull \
+curl -X POST https://<your telemetry Worker>/v1/gsc/pull \
   -H "authorization: Bearer $GSC_ADMIN_TOKEN" -d '{"date":"2026-06-01"}'
 ```
 
@@ -316,8 +318,10 @@ and the server's time), adds the country (or takes the one an app's Worker passe
 bound as `EVENTS`. A bad batch gets a 400 and the SDK drops it; a failed
 write is a 5xx and the SDK retries.
 
-The shared deployment is `flare-telemetry` (`telemetry/wrangler.jsonc`).
-To add an app, add a key to `APP_KEYS` and deploy. App keys are not
+Deploy your own from `telemetry/wrangler.example.jsonc` (copy it to
+`wrangler.jsonc`, add your stream id, `npx wrangler deploy`); one Worker
+can serve all your apps. `telemetry/wrangler.jsonc` in this repo is the
+maintainer's own deployment. To add an app, add a key to `APP_KEYS` and deploy. App keys are not
 secrets; they ship in the app, like a GA4 measurement id.
 
 ## Setting up Basin (once per account)
@@ -341,7 +345,7 @@ they arrive (`--roll-interval 60`).
 ## Querying
 
 ```sh
-npx wrangler basin sql query YOUR_ACCOUNT_ID_telemetry \
+npx wrangler basin sql query <account id>_telemetry \
   "SELECT name, COUNT(*) FROM telemetry.events
    WHERE app_id = 'glp3' AND env = 'prod' AND __ingest_ts >= '2026-10-01'
    GROUP BY name ORDER BY 2 DESC LIMIT 50"

@@ -14,10 +14,7 @@
 //   --android <package>    the Android package name
 //   --firebase <project>   the Firebase project id (default: FCM_SERVICE_ACCOUNT's)
 //   --google-services <path>  where google-services.json goes (default: android/app/ in the repo)
-//   --app <name>           the app's 1Password item, e.g. Cooked (default: the Worker's name);
-//                          a new FCM key is saved there as FCM_SERVICE_ACCOUNT
-//   --vault <name>         the 1Password vault (default Vault)
-//   --op <cmd>             the 1Password CLI (default op)
+//   --fcm-key <path>       where a new FCM key is written (default FCM_SERVICE_ACCOUNT.json here)
 //   --skip <steps>         any of worker,apple,firebase,secrets, comma-separated
 //   --env <name>           a wrangler environment
 //   --dry-run              say what would change, change nothing
@@ -47,7 +44,7 @@ function fail(message) {
 
 function parseArgs(argv) {
   const out = { _: [], data: [] };
-  const valued = ["ios", "android", "firebase", "google-services", "vault", "app", "op", "skip", "env", "device", "member", "token", "platform", "app-id", "key", "title", "body"];
+  const valued = ["ios", "android", "firebase", "google-services", "fcm-key", "skip", "env", "device", "member", "token", "platform", "app-id", "key", "title", "body"];
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === "--dry-run" || a === "--sandbox") out[a.slice(2)] = true;
@@ -281,33 +278,9 @@ function googleServicesPath(args) {
   return null;
 }
 
-const vaultOf = (args) => args.vault ?? "Vault";
-const itemOf = (args, ctx) => args.app ?? ctx.name;
-
-/** Saves `value` as field `field` of the app's 1Password item, making the
- *  item if it isn't there. Returns an error message, or null. */
-function opSave(args, title, field, value) {
-  const op = args.op ?? "op";
-  const vault = vaultOf(args);
-  const exists = spawnSync(op, ["item", "get", title, "--vault", vault], { stdio: "ignore" }).status === 0;
-  const res = exists
-    ? spawnSync(op, ["item", "edit", title, "--vault", vault, `${field}[concealed]=${value}`], { encoding: "utf8", stdio: ["ignore", "ignore", "pipe"] })
-    : spawnSync(op, ["item", "create", "--vault", vault, "--format", "json", "-"], {
-        input: JSON.stringify({ title, category: "API_CREDENTIAL", fields: [{ id: field, type: "CONCEALED", label: field, value }] }),
-        encoding: "utf8",
-        stdio: ["pipe", "ignore", "pipe"],
-      });
-  return res.status === 0 ? null : (res.stderr || `${op} exited ${res.status}`).trim();
-}
-
-/** A secret from the environment, the Worker's .dev.vars, or the app's 1Password item. */
-function secretValue(args, ctx, name) {
-  if (process.env[name]) return process.env[name];
-  const dev = devVars();
-  if (dev[name]) return dev[name];
-  const item = name.startsWith("APNS_") ? "Apple Push" : itemOf(args, ctx);
-  const res = spawnSync(args.op ?? "op", ["read", `op://${vaultOf(args)}/${item}/${name}`], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
-  return res.status === 0 ? res.stdout.trim() : null;
+/** A secret from the environment or the Worker's .dev.vars. */
+function secretValue(name) {
+  return process.env[name] || devVars()[name] || null;
 }
 
 function devVars() {
@@ -320,7 +293,9 @@ async function stepFirebase(args, ctx) {
   if (!args.android) return skip("no Android package (pass --android to send to Android)");
   let account = null;
   try {
-    const saved = secretValue(args, ctx, "FCM_SERVICE_ACCOUNT");
+    // A key an earlier run wrote counts, so a rerun doesn't make another.
+    const file = resolve(args["fcm-key"] ?? join(process.cwd(), "FCM_SERVICE_ACCOUNT.json"));
+    const saved = secretValue("FCM_SERVICE_ACCOUNT") ?? (existsSync(file) ? readFileSync(file, "utf8") : null);
     account = saved ? JSON.parse(saved) : null;
   } catch {
     fail("FCM_SERVICE_ACCOUNT isn't JSON");
@@ -348,18 +323,14 @@ async function stepFirebase(args, ctx) {
   const { accounts = [] } = await google(token, project, "GET", `https://iam.googleapis.com/v1/projects/${project}/serviceAccounts?pageSize=100`);
   const admin = accounts.find((a) => a.email.startsWith("firebase-adminsdk-"));
   if (!admin) return todo(`${project} has no firebase-adminsdk service account; make a key in Firebase → Project settings → Service accounts`);
-  const title = itemOf(args, ctx);
-  if (args["dry-run"]) return todo(`would create a key for ${admin.email} and save it as FCM_SERVICE_ACCOUNT in 1Password item "${title}" (${vaultOf(args)})`);
+  const file = resolve(args["fcm-key"] ?? join(process.cwd(), "FCM_SERVICE_ACCOUNT.json"));
+  if (args["dry-run"]) return todo(`would create a key for ${admin.email} and write it to ${relative(process.cwd(), file)}`);
   const key = await google(token, project, "POST", `https://iam.googleapis.com/v1/${admin.name}/keys`, {});
-  const json = Buffer.from(key.privateKeyData, "base64").toString("utf8");
-  const saved = opSave(args, title, "FCM_SERVICE_ACCOUNT", JSON.stringify(JSON.parse(json)));
-  if (saved) {
-    // Don't lose it: the key can't be downloaded again.
-    const file = join(process.cwd(), "FCM_SERVICE_ACCOUNT.json");
-    writeFileSync(file, json, { mode: 0o600 });
-    chmodSync(file, 0o600);
-    todo(`couldn't save it to 1Password (${saved}); it's in ${file}: store it, then delete the file`);
-  } else done(`created a key for ${admin.email} and saved it as FCM_SERVICE_ACCOUNT in "${title}"`);
+  // Google lets you download a key only once, so it goes to a file first.
+  writeFileSync(file, Buffer.from(key.privateKeyData, "base64").toString("utf8"), { mode: 0o600 });
+  chmodSync(file, 0o600);
+  done(`created a key for ${admin.email} in ${relative(process.cwd(), file)}`);
+  todo(`set it with \`wrangler secret put FCM_SERVICE_ACCOUNT < ${relative(process.cwd(), file)}\`, keep it wherever you keep secrets, then delete the file (don't commit it)`);
 }
 
 // ── Secrets: listed in wrangler.jsonc, set by you ───────────────────────
@@ -375,11 +346,10 @@ function stepSecrets(args, ctx) {
     if (!args["dry-run"]) writeFileSync(ctx.file, addTopLevel(readFileSync(ctx.file, "utf8"), "secrets", { required: SECRETS }));
     done(`${args["dry-run"] ? "would list" : "listed"} the push secrets in secrets.required`);
   }
-  const vault = vaultOf(args);
   todo(
-    `set them on the Worker (and in .dev.vars for flare-push test), the way you set your others:\n` +
-      `      APNS_KEY_P8, APNS_KEY_ID, APNS_TEAM_ID: the team's APNs key, its id and your team id (one for every app; 1Password ${vault} → "Apple Push")\n` +
-      `      FCM_SERVICE_ACCOUNT: the Firebase service account JSON (1Password ${vault} → "${itemOf(args, ctx)}")`,
+    `set them on the Worker with \`wrangler secret put <NAME>\` (and in .dev.vars for flare-push test), the way you set your others:\n` +
+      `      APNS_KEY_P8, APNS_KEY_ID, APNS_TEAM_ID: the team's APNs key (.p8 contents), its id and your team id (one key serves every app)\n` +
+      `      FCM_SERVICE_ACCOUNT: the Firebase service account JSON`,
   );
 }
 

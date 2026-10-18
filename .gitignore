@@ -9,3 +9,5 @@ node_modules/
 .dev.vars
 .wrangler/
 __pycache__/
+FCM_SERVICE_ACCOUNT.json
+*.p8

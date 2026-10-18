@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 // Opts a project into Flare telemetry and keeps its events.json honest.
 //
-//   flare-telemetry init --app <id> [--key <k_…>]
-//       writes events.json, binds the shared `flare-telemetry` Worker in
-//       wrangler.jsonc (as TELEMETRY), and prints the app key line for the
+//   flare-telemetry init --app <id> [--key <k_…>] [--service <worker>]
+//       writes events.json, binds your ingest Worker (`flare-telemetry`, or
+//       --service <name>) in wrangler.jsonc (as TELEMETRY), and prints the app key line for the
 //       Worker's APP_KEYS plus the code to paste. Safe to run again.
 //   flare-telemetry check [--file <path>]
 //       fails when events.json breaks the naming rules (for CI)
@@ -36,7 +36,7 @@ function parseArgs(argv) {
   const out = { _: [] };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
-    if (["--app", "--key", "--file", "--build", "--days", "--env"].includes(a)) out[a.slice(2)] = argv[++i];
+    if (["--app", "--key", "--file", "--build", "--days", "--env", "--service"].includes(a)) out[a.slice(2)] = argv[++i];
     else if (a === "-h" || a === "--help") out.help = true;
     else out._.push(a);
   }
@@ -76,7 +76,7 @@ function check(args) {
 }
 
 /** Adds the TELEMETRY service binding after "main" in wrangler.jsonc. Returns what it did. */
-function bindWorker(config) {
+function bindWorker(config, service) {
   const text = readFileSync(config, "utf8");
   if (/"binding"\s*:\s*"TELEMETRY"/.test(text)) return "already bound";
   if (/"services"\s*:/.test(text)) return "has a services list: add the TELEMETRY binding to it yourself";
@@ -84,7 +84,7 @@ function bindWorker(config) {
   if (!main) return 'has no "main" line: add the TELEMETRY binding yourself';
   const indent = main[1].replace(/^\n/, "");
   const line = main[0].trimEnd().endsWith(",") || /,\s*\/\//.test(main[0]) ? main[0] : main[0].replace(/("main"\s*:\s*"[^"]*")/, "$1,");
-  const binding = `${indent}// Telemetry: the shared Flare ingest Worker (see @flare/telemetry).\n${indent}"services": [{ "binding": "TELEMETRY", "service": "flare-telemetry" }],`;
+  const binding = `${indent}// Telemetry: your Flare ingest Worker (see @flare/telemetry).\n${indent}"services": [{ "binding": "TELEMETRY", "service": "${service}" }],`;
   writeFileSync(config, text.replace(main[0], `${line}\n${binding}`));
   return "added the TELEMETRY service binding";
 }
@@ -102,14 +102,14 @@ function init(args) {
   }
 
   const config = ["wrangler.jsonc", "wrangler.json"].map((n) => join(process.cwd(), n)).find(existsSync);
-  if (config) console.log(`- ${relative(process.cwd(), config)}: ${bindWorker(config)}`);
+  if (config) console.log(`- ${relative(process.cwd(), config)}: ${bindWorker(config, args.service ?? "flare-telemetry")}`);
   else console.log("- no wrangler.jsonc here: off Cloudflare, use the Worker's URL as `target` instead of env.TELEMETRY");
 
   const rel = (p) => `./${relative(process.cwd(), p)}`;
   console.log(`
-1. Register the key: in johnkueh/flare telemetry/wrangler.jsonc, add to APP_KEYS
+1. Register the key: in your telemetry Worker's wrangler.jsonc, add to APP_KEYS
      "${key}": "${app}"
-   and deploy (cd telemetry && pnpm run deploy). Keys aren't secrets.
+   and deploy it. Keys aren't secrets.
 
 2. Browser (once, at startup):
      import { telemetry } from "@flare/telemetry/browser";
@@ -131,7 +131,7 @@ const [command] = args._;
 if (args.help || !command) {
   console.log(
     [
-      "usage: flare-telemetry init --app <id> [--key <k_…>] [--file events.json]",
+      "usage: flare-telemetry init --app <id> [--key <k_…>] [--service <worker>] [--file events.json]",
       "       flare-telemetry check [--file events.json]",
       "       flare-telemetry symbols <.xcarchive | .dSYM | folder>...",
       "       flare-telemetry symbols mapping.txt --app <id> --build <versionCode>",
