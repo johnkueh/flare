@@ -7,6 +7,13 @@
 //       Worker's APP_KEYS plus the code to paste. Safe to run again.
 //   flare-telemetry check [--file <path>]
 //       fails when events.json breaks the naming rules (for CI)
+//   flare-telemetry symbols <.xcarchive | .dSYM | folder>...
+//   flare-telemetry symbols mapping.txt --app <id> --build <versionCode>
+//       uploads a release build's dSYMs or R8 mapping to R2
+//   flare-telemetry crash --app <id> [<fingerprint>] [--days 7] [--env prod]
+//   flare-telemetry crash --file <event.json> [--app <id>]
+//       lists crashes, hangs and errors, or prints the newest of one group
+//       with readable frames (bin/symbols.mjs)
 //
 // The product's iOS and Android apps use the same app id and events.json,
 // so every platform lands in one table under one set of names.
@@ -16,6 +23,7 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 
 import { checkEvents } from "../dist/events.js";
+import { crash, upload } from "./symbols.mjs";
 
 const APP = /^[a-z][a-z0-9_-]{0,31}$/;
 
@@ -28,7 +36,7 @@ function parseArgs(argv) {
   const out = { _: [] };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
-    if (a === "--app" || a === "--key" || a === "--file") out[a.slice(2)] = argv[++i];
+    if (["--app", "--key", "--file", "--build", "--days", "--env"].includes(a)) out[a.slice(2)] = argv[++i];
     else if (a === "-h" || a === "--help") out.help = true;
     else out._.push(a);
   }
@@ -121,9 +129,20 @@ Then \`flare-telemetry check\` in CI keeps events.json valid.`);
 const args = parseArgs(process.argv.slice(2));
 const [command] = args._;
 if (args.help || !command) {
-  console.log("usage: flare-telemetry init --app <id> [--key <k_…>] [--file events.json]\n       flare-telemetry check [--file events.json]");
+  console.log(
+    [
+      "usage: flare-telemetry init --app <id> [--key <k_…>] [--file events.json]",
+      "       flare-telemetry check [--file events.json]",
+      "       flare-telemetry symbols <.xcarchive | .dSYM | folder>...",
+      "       flare-telemetry symbols mapping.txt --app <id> --build <versionCode>",
+      "       flare-telemetry crash --app <id> [<fingerprint>] [--days 7] [--env prod]",
+      "       flare-telemetry crash --file <event.json> [--app <id>]",
+    ].join("\n"),
+  );
   process.exit(args.help ? 0 : 1);
 }
 if (command === "init") init(args);
 else if (command === "check") check(args);
+else if (command === "symbols") upload(args);
+else if (command === "crash") await crash(args);
 else fail(`unknown command ${command}`);

@@ -12,6 +12,7 @@
 // the previous run's breadcrumbs. Handled errors: `telemetry.reportError(e)`.
 
 import Foundation
+import MachO
 
 #if canImport(MetricKit) && os(iOS)
 import MetricKit
@@ -153,11 +154,27 @@ enum FlareAppImages {
         }
         return names
     }()
+
+    /// The UUID in a loaded binary's Mach-O header (LC_UUID): the key its
+    /// dSYM is found by, in the same shape MetricKit's `binaryUUID` uses.
+    static func uuid(_ header: UnsafeMutableRawPointer) -> String? {
+        let mh = header.load(as: mach_header_64.self)
+        guard mh.magic == MH_MAGIC_64 else { return nil }
+        var command = UnsafeRawPointer(header) + MemoryLayout<mach_header_64>.size
+        for _ in 0..<mh.ncmds {
+            let lc = command.load(as: load_command.self)
+            if lc.cmd == UInt32(LC_UUID) {
+                return UUID(uuid: command.load(as: uuid_command.self).uuid).uuidString
+            }
+            command += Int(lc.cmdsize)
+        }
+        return nil
+    }
 }
 
 extension TelemetryClient {
     /// Count a caught error as an `error` event, with the caller's stack
-    /// (binary + offset, plus a symbol when one is exported).
+    /// (binary + offset + UUID, plus a symbol when one is exported).
     public func reportError(_ error: Error) {
         let addresses = Thread.callStackReturnAddresses.dropFirst()
         let frames = addresses.prefix(50).map { value -> StackFrame in
@@ -171,6 +188,7 @@ extension TelemetryClient {
                 module: module,
                 function: info.dli_sname.map { String(cString: $0) },
                 offset: UInt64(address - UInt(bitPattern: base)),
+                imageId: FlareAppImages.uuid(base),
                 inApp: FlareAppImages.names.contains(module)
             )
         }
