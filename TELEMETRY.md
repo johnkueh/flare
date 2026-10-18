@@ -92,7 +92,7 @@ and a readable `title`, and trims to 30 frames.
 A crash found on the next launch is filed under the session it happened in
 and the time the OS gives, with the previous run's breadcrumbs. iOS frames
 are binary + offset (MetricKit has no symbols), so the same bug groups per
-build; symbolicate with `atos -o <dSYM> -l 0x0 <offset>` or `llvm-symbolizer`.
+build; `flare-telemetry crash` turns them back into names (below).
 MetricKit only reports for users who share analytics with app developers.
 
 There is no extra dependency. The platform code is two files to copy next to
@@ -125,6 +125,61 @@ FROM telemetry.events
 WHERE app_id = 'glp3' AND env = 'prod' AND __ingest_ts >= '2026-10-10'
 GROUP BY 1 ORDER BY 1 DESC LIMIT 20
 ```
+
+### Readable stacks
+
+Phones send what they have: iOS frames are binary + offset + the binary's
+UUID, and Android release builds carry R8's renamed classes
+(`a.b.c(SourceFile:2)`). The names come back when you read a crash, from the
+symbol files each release build leaves behind. Nothing changes in the Worker
+or the table.
+
+Once per account: `npx wrangler r2 bucket create flare-symbols`.
+
+After each release build, upload its symbols (`CLOUDFLARE_API_TOKEN` from the
+Vault 1Password item, as for any wrangler command):
+
+```sh
+npx flare-telemetry symbols build/Cooked.xcarchive        # or a .dSYM, or a folder of them
+npx flare-telemetry symbols app/build/outputs/mapping/release/mapping.txt --app cooked --build 42
+```
+
+Apple dSYMs are stored by UUID, so any build of any app finds its own. An
+R8 mapping is stored by app and build number (`versionCode`, the `app_build`
+column). For line numbers on Android, keep them in `proguard-rules.pro`:
+
+```
+-keepattributes SourceFile,LineNumberTable
+-renamesourcefileattribute SourceFile
+```
+
+Then read crashes (with `WRANGLER_BASIN_SQL_AUTH_TOKEN`, or the same
+`CLOUDFLARE_API_TOKEN`):
+
+```sh
+npx flare-telemetry crash --app cooked                    # groups, last 7 days (--days, --env)
+npx flare-telemetry crash 3fa2c1d09e8b7f61 --app cooked   # the newest one, readable
+```
+
+```
+crash  EXC_BAD_ACCESS SIGSEGV
+KERN_INVALID_ADDRESS at 0x0
+1.4 (42), ios, 26.1, iPhone17,1, 2026-10-17T10:22
+
+   * Cooked  (inlined) RecipeStore.validate()  RecipeStore.swift:31
+ 0 * Cooked  RecipeStore.save(_:)  RecipeStore.swift:88
+ 1 * Cooked  closure #1 in ImportView.body.getter  ImportView.swift:54
+ 2   UIKitCore  +0x2a1f0c
+```
+
+`*` marks the app's own frames. System libraries stay as offsets: crash
+groups are decided by the app's frames anyway. On a Mac, a dSYM still in an
+Xcode archive on that Mac is found by Spotlight without uploading. Lookups
+use `atos` on a Mac (it demangles Swift) and `llvm-symbolizer` elsewhere;
+symbol files are cached in `~/.cache/flare-symbols`. `crash --file
+event.json` reads one exported row instead of querying.
+
+Native Android crashes (C/C++/Rust in a `.so`) still arrive without frames.
 
 ## Web projects
 
