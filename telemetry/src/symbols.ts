@@ -270,7 +270,9 @@ export function parseAtosLine(line: string): { function: string; fileLine: strin
   const m = /^(.*?) \(in [^)]+\)(?: \((.+:\d+)\)| \+ \d+)?$/.exec(s);
   if (!m) return { function: s, fileLine: null };
   if (/^0x[0-9a-f]+$/i.test(m[1])) return null;
-  return { function: m[1], fileLine: m[2] ?? null };
+  // Line 0 is code the compiler made up (inlined stdlib, thunks): no place to show.
+  const fileLine = m[2] && !m[2].endsWith(":0") ? m[2] : null;
+  return { function: m[1], fileLine };
 }
 
 type SymbolizerJson = { Symbol?: { FunctionName?: string; FileName?: string; Line?: number }[] };

@@ -192,6 +192,10 @@ test("reads atos output", () => {
     fileLine: "RecipeStore.swift:88",
   });
   assert.deepEqual(parseAtosLine("closure #1 in Foo.bar() (in Cooked) + 52"), { function: "closure #1 in Foo.bar()", fileLine: null });
+  assert.deepEqual(parseAtosLine("specialized Array.subscript.getter (in Recipes) (<compiler-generated>:0)"), {
+    function: "specialized Array.subscript.getter",
+    fileLine: null,
+  });
   assert.equal(parseAtosLine("0x1000002ef"), null);
   assert.equal(parseAtosLine("0x1000002ef (in Cooked)"), null);
   assert.equal(parseAtosLine(""), null);
