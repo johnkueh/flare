@@ -6,7 +6,7 @@
 Worker: phones work offline, share data with each other, and catch up the
 moment they're back online.
 
-Sync, auth, feature flags, push notifications, links, product analytics and crash reporting, in one repo. Website: [flare.jkyf.dev](https://flare.jkyf.dev).
+Sync, auth, feature flags, push notifications, deep links, product analytics and crash reporting, in one repo. Website: [flare.jkyf.dev](https://flare.jkyf.dev).
 
 ## What you get
 
@@ -40,7 +40,7 @@ Web pages read and write through your Worker.
 serves them. Typed on every platform with no codegen step, and they work
 offline.
 
-**Links that survive an install.** A shared link opens the app on the
+**Deep links that survive an install.** A shared link opens the app on the
 right screen, or a landing page and the store when it isn't installed. The
 link comes through the install too: by itself on Android, with one paste
 tap on iPhone. No Branch or AppsFlyer.
@@ -66,7 +66,7 @@ pnpm add "@sync/server@github:johnkueh/flare#0.6.1&path:/server"
 pnpm add "@flare/auth@github:johnkueh/flare#0.6.1&path:/auth"   # accounts (AUTH.md)
 pnpm add "@flare/flags@github:johnkueh/flare#0.6.1&path:/flags" # feature flags (FLAGS.md)
 pnpm add "@flare/push@github:johnkueh/flare#0.6.1&path:/push"   # push notifications (PUSH.md)
-pnpm add "@flare/links@github:johnkueh/flare#0.6.1&path:/links" # links (LINKS.md); then npx flare-links setup
+pnpm add "@flare/links@github:johnkueh/flare#0.6.1&path:/links" # deep links (LINKS.md); then npx flare-links setup
 ```
 
 ```ts
@@ -101,5 +101,5 @@ try store.putDoc(collection: "groceries", doc: id, fieldsJson: #"{"name":"Milk"}
 - [AUTH.md](AUTH.md): accounts on Better Auth, signing in from a phone
 - [FLAGS.md](FLAGS.md): feature flags on Cloudflare Flagship, for iOS, Android, web, Node and Rust
 - [PUSH.md](PUSH.md): push notifications to APNs and FCM from your Worker, and asking for permission gracefully
-- [LINKS.md](LINKS.md): links that open the app, and survive an install, served by your Worker
+- [LINKS.md](LINKS.md): deep links that open the app, and deferred deep links that survive an install, served by your Worker
 - [TELEMETRY.md](TELEMETRY.md): product analytics and crash reporting into Cloudflare Basin, from a Rust SDK
