@@ -1,6 +1,5 @@
 // A starting point for your own ingest Worker. Copy it to wrangler.jsonc
-// (telemetry/wrangler.jsonc in this repo is the maintainer's deployment),
-// fill in your stream id from "Setting up Basin" in TELEMETRY.md, and
+// (gitignored, so your ids stay out of the repo), fill in your stream id from "Setting up Basin" in TELEMETRY.md, and
 // `npx wrangler deploy`. Each app gets a public key in APP_KEYS (not a
 // secret: it ships in the app, like a GA4 id).
 {

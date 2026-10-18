@@ -189,7 +189,7 @@ pnpm add "@flare/telemetry@github:johnkueh/flare#<tag>&path:/telemetry"
 npx flare-telemetry init --app ledgersignal
 ```
 
-`init` writes `events.json`, binds the shared Worker in `wrangler.jsonc` as
+`init` writes `events.json`, binds your ingest Worker in `wrangler.jsonc` as
 `TELEMETRY` (a service binding, so no public hop), and prints an app key
 and the code below. Add the key to `APP_KEYS` in your telemetry Worker's
 `wrangler.jsonc` and deploy it. `--service <name>` binds a Worker not named
@@ -318,10 +318,10 @@ and the server's time), adds the country (or takes the one an app's Worker passe
 bound as `EVENTS`. A bad batch gets a 400 and the SDK drops it; a failed
 write is a 5xx and the SDK retries.
 
-Deploy your own from `telemetry/wrangler.example.jsonc` (copy it to
-`wrangler.jsonc`, add your stream id, `npx wrangler deploy`); one Worker
-can serve all your apps. `telemetry/wrangler.jsonc` in this repo is the
-maintainer's own deployment. To add an app, add a key to `APP_KEYS` and deploy. App keys are not
+Deploy your own from `telemetry/wrangler.example.jsonc`: copy it to
+`telemetry/wrangler.jsonc` (gitignored, so your ids stay out of the repo),
+add your stream id, then `npx wrangler deploy`. One Worker can serve all
+your apps. To add an app, add a key to `APP_KEYS` and deploy. App keys are not
 secrets; they ship in the app, like a GA4 measurement id.
 
 ## Setting up Basin (once per account)

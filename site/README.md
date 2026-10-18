@@ -11,5 +11,5 @@ shadow, on Flare's cream background.
 ```sh
 pnpm install
 pnpm dev          # http://localhost:8787
-pnpm run deploy   # needs a Cloudflare token for John's account
+pnpm run deploy   # needs a Cloudflare token for the account that owns the domain
 ```
