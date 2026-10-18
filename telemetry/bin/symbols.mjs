@@ -8,7 +8,7 @@
 // and are cached in ~/.cache/flare-symbols once read.
 
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { basename, dirname, extname, join, resolve } from "node:path";
 
@@ -100,12 +100,25 @@ export function upload(args) {
 // ---------------------------------------------------------------------------
 // Finding symbols
 
+/** A cached file, unless it's missing or empty. */
+function cached(path) {
+  return existsSync(path) && statSync(path).size > 0 ? path : null;
+}
+
 function fetchFromR2(key) {
   const dest = join(CACHE, key);
-  if (existsSync(dest)) return dest;
+  if (cached(dest)) return dest;
   mkdirSync(dirname(dest), { recursive: true });
-  const r = wrangler(["r2", "object", "get", `${BUCKET}/${key}`, "--file", dest, "--remote"], true);
-  return r.status === 0 && existsSync(dest) ? dest : null;
+  // wrangler creates --file before it knows the object exists (or that it's
+  // signed in), so download beside it and keep only a real file.
+  const part = `${dest}.${process.pid}.part`;
+  const r = wrangler(["r2", "object", "get", `${BUCKET}/${key}`, "--file", part, "--remote"], true);
+  if (r.status === 0 && cached(part)) {
+    renameSync(part, dest);
+    return dest;
+  }
+  rmSync(part, { force: true });
+  return null;
 }
 
 /** On a Mac, Spotlight indexes the dSYMs inside Xcode archives by UUID. */
@@ -121,9 +134,7 @@ function findOnThisMac(uuid) {
 }
 
 function dsymFor(uuid) {
-  const cached = join(CACHE, "apple", uuid);
-  if (existsSync(cached)) return cached;
-  return findOnThisMac(uuid) ?? fetchFromR2(`apple/${uuid}`);
+  return cached(join(CACHE, "apple", uuid)) ?? findOnThisMac(uuid) ?? fetchFromR2(`apple/${uuid}`);
 }
 
 function which(tool) {
