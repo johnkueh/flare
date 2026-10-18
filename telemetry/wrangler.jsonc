@@ -8,7 +8,7 @@
   "workers_dev": true,
   "pipelines": [{ "binding": "EVENTS", "stream": "YOUR_STREAM_ID" }],
   "vars": {
-    "APP_KEYS": "{\"k_example_000000000000000000000001\":\"glp3\",\"k_example_000000000000000000000002\":\"snuglog\",\"k_example_000000000000000000000003\":\"cooked\",\"k_example_000000000000000000000004\":\"ledgersignal\"}",
+    "APP_KEYS": "{\"k_example_000000000000000000000001\":\"glp3\",\"k_example_000000000000000000000002\":\"snuglog\",\"k_example_000000000000000000000003\":\"cooked\",\"k_example_000000000000000000000004\":\"ledgersignal\",\"k_example_000000000000000000000005\":\"johnkueh\"}",
     // Search Console property -> app id, for the daily pull.
     "GSC_SITES": "{}"
   },
