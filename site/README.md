@@ -13,3 +13,6 @@ pnpm install
 pnpm dev          # http://localhost:8787
 pnpm run deploy   # needs a Cloudflare token for the account that owns the domain
 ```
+
+Pushes to `main` deploy on their own through Cloudflare Workers Builds, with
+`site` as the build path. `pnpm run deploy` is for deploying by hand.
