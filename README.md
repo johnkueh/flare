@@ -62,11 +62,11 @@ until someone syncs. Nothing to babysit.
 **Worker**
 
 ```sh
-pnpm add "@sync/server@github:johnkueh/flare#0.5.0&path:/server"
-pnpm add "@flare/auth@github:johnkueh/flare#0.5.0&path:/auth"   # accounts (AUTH.md)
-pnpm add "@flare/flags@github:johnkueh/flare#0.5.0&path:/flags" # feature flags (FLAGS.md)
-pnpm add "@flare/push@github:johnkueh/flare#0.6.0&path:/push"   # push notifications (PUSH.md), from 0.6.0
-pnpm add "@flare/links@github:johnkueh/flare#0.6.0&path:/links" # links (LINKS.md), from 0.6.0
+pnpm add "@sync/server@github:johnkueh/flare#0.6.1&path:/server"
+pnpm add "@flare/auth@github:johnkueh/flare#0.6.1&path:/auth"   # accounts (AUTH.md)
+pnpm add "@flare/flags@github:johnkueh/flare#0.6.1&path:/flags" # feature flags (FLAGS.md)
+pnpm add "@flare/push@github:johnkueh/flare#0.6.1&path:/push"   # push notifications (PUSH.md)
+pnpm add "@flare/links@github:johnkueh/flare#0.6.1&path:/links" # links (LINKS.md); then npx flare-links setup
 ```
 
 ```ts
@@ -84,7 +84,7 @@ maven("https://jitpack.io")
 maven("https://pub-796846793f3e431ab3a92e0577c57dde.r2.dev/maven")
 
 // app/build.gradle.kts
-implementation("com.github.johnkueh:flare:0.5.0")
+implementation("com.github.johnkueh:flare:0.6.1")
 ```
 
 Then describe your data in one JSON file and open the store:
