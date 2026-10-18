@@ -205,3 +205,44 @@ export function normalizeSha256(digest: string): string | null {
   if (!/^[0-9A-F]{64}$/.test(hex)) return null;
   return hex.match(/../g)!.join(":");
 }
+
+/** A certificate hash as an API reports it, hex (any case, colons or not)
+ *  or base64, → "0C:5D:2C:…", or null. */
+export function certificateSha256(value: string): string | null {
+  const hex = normalizeSha256(value);
+  if (hex) return hex;
+  try {
+    const bytes = atob(String(value).replace(/-/g, "+").replace(/_/g, "/"));
+    if (bytes.length !== 32) return null;
+    return normalizeSha256([...bytes].map((c) => c.charCodeAt(0).toString(16).padStart(2, "0")).join(""));
+  } catch {
+    return null;
+  }
+}
+
+/** The events FlareLinks reports through `onEvent`, for the app's own event list. */
+export const LINK_EVENTS = {
+  link_opened: {
+    description: "A link opened the app (Flare links). kind: the link's kind in links.json.",
+    params: { kind: "invite" },
+  },
+  link_deferred_claimed: {
+    description: "A link tapped before installing reached the app on first launch (Flare links). via: paste (iPhone) or referrer (Android, Play).",
+    params: { kind: "invite", via: "paste" },
+  },
+} as const;
+
+/** An events file with the link events added, in the file's own shape:
+ *  params as example values (Flare telemetry's events.json) or as a list of
+ *  names. Returns the names it added; existing entries are left alone. */
+export function addLinkEvents(file: { events?: Record<string, unknown> }): { file: { events: Record<string, unknown> }; added: string[] } {
+  const events = { ...(file.events ?? {}) };
+  const asList = Object.values(events).some((e) => Array.isArray((e as { params?: unknown })?.params));
+  const added: string[] = [];
+  for (const [name, def] of Object.entries(LINK_EVENTS)) {
+    if (name in events) continue;
+    events[name] = { description: def.description, params: asList ? Object.keys(def.params) : { ...def.params } };
+    added.push(name);
+  }
+  return { file: { ...file, events }, added };
+}

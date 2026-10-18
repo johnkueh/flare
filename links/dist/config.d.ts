@@ -81,3 +81,33 @@ export declare function assetLinks(file: LinksFile): {
 }[];
 /** "0c5d2c…" or "0C:5D:2C:…" → "0C:5D:2C:…", or null. */
 export declare function normalizeSha256(digest: string): string | null;
+/** A certificate hash as an API reports it, hex (any case, colons or not)
+ *  or base64, → "0C:5D:2C:…", or null. */
+export declare function certificateSha256(value: string): string | null;
+/** The events FlareLinks reports through `onEvent`, for the app's own event list. */
+export declare const LINK_EVENTS: {
+    readonly link_opened: {
+        readonly description: "A link opened the app (Flare links). kind: the link's kind in links.json.";
+        readonly params: {
+            readonly kind: "invite";
+        };
+    };
+    readonly link_deferred_claimed: {
+        readonly description: "A link tapped before installing reached the app on first launch (Flare links). via: paste (iPhone) or referrer (Android, Play).";
+        readonly params: {
+            readonly kind: "invite";
+            readonly via: "paste";
+        };
+    };
+};
+/** An events file with the link events added, in the file's own shape:
+ *  params as example values (Flare telemetry's events.json) or as a list of
+ *  names. Returns the names it added; existing entries are left alone. */
+export declare function addLinkEvents(file: {
+    events?: Record<string, unknown>;
+}): {
+    file: {
+        events: Record<string, unknown>;
+    };
+    added: string[];
+};

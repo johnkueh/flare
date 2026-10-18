@@ -1,5 +1,5 @@
 import { type Link, type LinksFile } from "./config.ts";
-export { appleAppSiteAssociation, assetLinks, checkLinks, type Link, type LinkKind, type LinksFile, linkUrl, normalizeSha256, parseLink, REFERRER_KEY, SCHEME_HOST, schemeUrl, storeUrl, } from "./config.ts";
+export { appleAppSiteAssociation, assetLinks, addLinkEvents, certificateSha256, checkLinks, LINK_EVENTS, type Link, type LinkKind, type LinksFile, linkUrl, normalizeSha256, parseLink, REFERRER_KEY, SCHEME_HOST, schemeUrl, storeUrl, } from "./config.ts";
 /** What the landing page and chat previews say about one link. */
 export interface LinkCard {
     /** "Mia invited you to Flat". */

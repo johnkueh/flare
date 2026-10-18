@@ -93,10 +93,21 @@ makes a link on the server.
 
 ## iOS
 
-`FlareLinks` and `PasteLinkButton` are in `SyncClient`. Add `links.json` to
-the app target, the Associated Domains capability with
-`applinks:example.com`, and the URL scheme if the app doesn't register it
-already. `npx flare-links setup` prints both.
+`FlareLinks` and `PasteLinkButton` are in `SyncClient`. Three one-time steps,
+which `npx flare-links setup` walks through for your links.json:
+
+```sh
+npx flare-links embed ios/App/Resources    # a symlink to links.json; add it to the target once
+npx flare-links capability                 # turns on Associated Domains for each App ID
+npx flare-links events analytics/events.json
+```
+
+`capability` uses an App Store Connect API key (Admin or App Manager):
+`--key-id`, `--issuer-id` and `--key AuthKey.p8`, or fastlane's
+`APP_STORE_CONNECT_API_KEY_KEY_ID`, `_ISSUER_ID` and `_KEY_FILEPATH`. It only
+adds the capability, and `--dry-run` reports without changing anything. Then
+add the entitlement `applinks:example.com`, and the URL scheme if the app
+doesn't register it already.
 
 ```swift
 let links = FlareLinks(config: try .bundled(), onEvent: { name, params in telemetry.track(name, params) })
@@ -127,7 +138,7 @@ ShareLink(item: links.url("invite", ["code": space.code]))
 ## Android
 
 `FlareLinks` is in `com.johnkueh.sync.client`. Put `links.json` in
-`assets/`, add `implementation("com.android.installreferrer:installreferrer:2.2")`
+`assets/` (`npx flare-links embed android/app/src/main/assets`), add `implementation("com.android.installreferrer:installreferrer:2.2")`
 and the intent filters (`npx flare-links setup` prints them):
 
 ```xml
@@ -163,14 +174,32 @@ links.url("invite", mapOf("code" to space.code))
 `claimDeferred()` asks Play once and returns null after that, or when the
 app wasn't installed from Play. `claim(pastedText)` reads a pasted link.
 
+### The Play app signing key
+
+Play re-signs every build it installs, so App Links only verify for people
+who installed from Play if `android.sha256` lists the Play app signing key.
+The upload key and the debug key look right and fail. After the first upload
+to any track:
+
+```sh
+npx flare-links play-sha --write   # reads it from Play, adds it to links.json
+```
+
+It uses a Play service account with access to the app (`--service-account
+key.json`, or `SUPPLY_JSON_KEY` / `GOOGLE_APPLICATION_CREDENTIALS`), and reads
+the key from the APKs Play generated for the newest upload. Play Console shows
+the same key under Test and release → App integrity.
+
 ## Check it
 
 ```sh
 npx flare-links check          # reads ./links.json
 ```
 
-It fetches both files from the live domain (and www), compares them with
-`links.json`, checks Apple's CDN copy and Google's Digital Asset Links API,
+It compares every other `links.json` in the repo for the same domain (the
+apps' copies) with the source, fetches both files from the live domain (and
+www), compares them with `links.json`, flags an `android.sha256` that holds
+only this machine's debug key, checks Apple's CDN copy and Google's Digital Asset Links API,
 and loads a sample link's landing page. `npx flare-links url invite code=AB`
 prints a link.
 

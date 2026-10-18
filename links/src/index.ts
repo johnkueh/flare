@@ -25,7 +25,10 @@ import {
 export {
   appleAppSiteAssociation,
   assetLinks,
+  addLinkEvents,
+  certificateSha256,
   checkLinks,
+  LINK_EVENTS,
   type Link,
   type LinkKind,
   type LinksFile,
@@ -148,8 +151,8 @@ ${image ? `<meta property="og:image" content="${e(image)}">\n<meta name="twitter
 ${file.ios?.appStoreId ? `<meta name="apple-itunes-app" content="app-id=${e(file.ios.appStoreId)}, app-argument=${e(link.url)}">` : ""}
 ${page.icon ? `<link rel="icon" href="${e(page.icon)}">` : ""}
 <style>
-:root{--accent:${e(accent)};--bg:#fff;--fg:#1a1a1a;--muted:#6b6b6b;--line:#e6e6e6;color-scheme:light dark}
-@media (prefers-color-scheme:dark){:root{--bg:#141414;--fg:#f2f2f2;--muted:#a0a0a0;--line:#2c2c2c}}
+:root{--accent:${e(accent)};--accent-text:var(--accent);--bg:#fff;--fg:#1a1a1a;--muted:#6b6b6b;--line:#e6e6e6;color-scheme:light dark}
+@media (prefers-color-scheme:dark){:root{--bg:#141414;--fg:#f2f2f2;--muted:#a0a0a0;--line:#2c2c2c;--accent-text:color-mix(in srgb,var(--accent) 55%,#fff)}}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--fg);font:17px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
 main{max-width:440px;margin:0 auto;padding:48px 24px;display:flex;flex-direction:column;gap:20px;min-height:100vh}
@@ -158,10 +161,11 @@ main{max-width:440px;margin:0 auto;padding:48px 24px;display:flex;flex-direction
 h1{font-size:28px;line-height:1.2;margin:0}
 p{margin:0;color:var(--muted)}
 .detail{display:flex;align-items:center;justify-content:space-between;gap:12px;border:1px solid var(--line);border-radius:14px;padding:14px 16px;font:600 24px/1 ui-monospace,Menlo,monospace;letter-spacing:.04em}
-.detail button{font:600 15px -apple-system,sans-serif;background:none;border:0;color:var(--accent);cursor:pointer}
+.detail button{font:600 15px -apple-system,sans-serif;background:none;border:0;color:var(--accent-text);cursor:pointer}
 .actions{display:flex;flex-direction:column;gap:10px;margin-top:auto}
 .btn{display:block;text-align:center;text-decoration:none;font-weight:600;padding:15px;border-radius:14px;background:var(--accent);color:#fff;border:0;font-size:17px;cursor:pointer}
 .btn.quiet{background:none;color:var(--fg);border:1px solid var(--line)}
+.hint a{color:var(--accent-text)}
 .hint{font-size:14px;text-align:center}
 [hidden]{display:none!important}
 ${page.css ?? ""}
