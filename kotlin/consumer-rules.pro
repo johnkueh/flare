@@ -7,3 +7,6 @@
 # apps with push include.
 -dontwarn com.google.firebase.messaging.**
 -dontwarn com.google.android.gms.tasks.**
+# FlareLinks compiles against the Play Install Referrer library, which only
+# apps with deferred links include.
+-dontwarn com.android.installreferrer.**

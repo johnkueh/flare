@@ -64,6 +64,8 @@ dependencies {
     api(libs.kotlinx.serialization.json)
     // FlarePushMessagingService: only apps with push bring Firebase in.
     compileOnly(libs.firebase.messaging)
+    // FlareLinks.claimDeferred: only apps with deferred links bring it in.
+    compileOnly(libs.installreferrer)
     if (!localRust) implementation("com.johnkueh.sync:sync-ffi-native:$ffiVersion@aar")
 }
 

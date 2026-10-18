@@ -7,6 +7,8 @@ coroutines = "1.10.2"
 jna = "5.17.0"
 # Compiled against only: apps with push add it themselves (PUSH.md).
 firebaseMessaging = "24.1.1"
+# Compiled against only: apps with deferred links add it themselves (LINKS.md).
+installReferrer = "2.2"
 # The example app (example/android) only.
 composeBom = "2025.10.01"
 activityCompose = "1.11.0"
@@ -17,6 +19,7 @@ kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serializa
 kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "coroutines" }
 jna = { module = "net.java.dev.jna:jna", version.ref = "jna" }
 firebase-messaging = { module = "com.google.firebase:firebase-messaging", version.ref = "firebaseMessaging" }
+installreferrer = { module = "com.android.installreferrer:installreferrer", version.ref = "installReferrer" }
 compose-bom = { module = "androidx.compose:compose-bom", version.ref = "composeBom" }
 compose-material3 = { module = "androidx.compose.material3:material3" }
 compose-ui-tooling-preview = { module = "androidx.compose.ui:ui-tooling-preview" }

@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Flare links.json",
+  "type": "object",
+  "required": ["domain", "name", "links"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "domain": { "type": "string", "description": "The domain links live on, e.g. example.com. No scheme or path." },
+    "name": { "type": "string", "description": "The app's name, as the landing page says it." },
+    "scheme": { "type": "string", "description": "The app's custom URL scheme, for the landing page's Open button." },
+    "ios": {
+      "type": "object",
+      "required": ["appIds"],
+      "properties": {
+        "appIds": { "type": "array", "items": { "type": "string", "pattern": "^[A-Z0-9]{10}\\." }, "description": "<team id>.<bundle id>" },
+        "store": { "type": "string", "description": "App Store or TestFlight URL for iPhones without the app." },
+        "appStoreId": { "type": "string", "description": "For Safari's Smart App Banner." }
+      }
+    },
+    "android": {
+      "type": "object",
+      "required": ["packages", "sha256"],
+      "properties": {
+        "packages": { "type": "array", "items": { "type": "string" } },
+        "sha256": { "type": "array", "items": { "type": "string" }, "description": "Signing certificate SHA-256s (Play app signing + debug)." },
+        "store": { "type": "string" }
+      }
+    },
+    "links": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["path"],
+        "properties": {
+          "path": { "type": "string", "pattern": "^/", "description": "e.g. /j/:code" },
+          "deferred": { "type": "boolean", "description": "Carry the link through an install." }
+        }
+      }
+    }
+  }
+}

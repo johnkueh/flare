@@ -1,0 +1,29 @@
+{
+  "name": "@flare/links",
+  "private": true,
+  "type": "module",
+  "description": "Links that open a Flare app, and still get there when the app has to be installed first. The app's Worker serves the Apple and Android verification files and a landing page; no third-party service and no npm dependencies (LINKS.md).",
+  "exports": {
+    ".": "./src/index.ts",
+    "./schema.json": "./schema.json"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "test": "node --test --experimental-strip-types src/*.test.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20261014.1",
+    "@types/node": "^22",
+    "typescript": "^5.9.3"
+  },
+  "bin": {
+    "flare-links": "./bin/flare-links.mjs"
+  },
+  "files": [
+    "src",
+    "dist",
+    "bin",
+    "schema.json"
+  ]
+}

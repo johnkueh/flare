@@ -4,7 +4,7 @@
 //
 //   SyncKit     the Rust store and flags (crate sync-ffi) through UniFFI
 //   SyncClient  the HTTP client, sync pass, file transfer, live socket,
-//               accounts and feature flags
+//               accounts, feature flags, push and links
 //   FlareFlags  generates a typed property per flag from the app's
 //               flags.json, on every build (FLAGS.md)
 //
@@ -79,6 +79,12 @@ let package = Package(
             exclude: ["flags.json"],
             swiftSettings: [.swiftLanguageMode(.v6)],
             plugins: ["FlareFlags"]
+        ),
+        .testTarget(
+            name: "FlareLinksTests",
+            dependencies: ["SyncClient"],
+            path: "swift/Tests/FlareLinksTests",
+            swiftSettings: [.swiftLanguageMode(.v6)]
         ),
     ]
 )
