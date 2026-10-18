@@ -1,6 +1,6 @@
-# Links
+# Deep links
 
-Links that open your app on the right screen, and still get there when the
+Deep links that open your app on the right screen, and still get there when the
 app has to be installed first. The app's own Worker serves everything: no
 Branch, no AppsFlyer, no Firebase Dynamic Links.
 
