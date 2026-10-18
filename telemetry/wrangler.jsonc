@@ -1,5 +1,6 @@
-// The standalone ingest Worker shared by every app. Each app gets a public
-// key in APP_KEYS (not a secret: it ships in the app, like a GA4 id).
+// The maintainer's own ingest Worker, shared by their apps. For yours, start
+// from wrangler.example.jsonc. Each app gets a public key in APP_KEYS (not a
+// secret: it ships in the app, like a GA4 id).
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "flare-telemetry",

@@ -25,8 +25,8 @@ import {
 } from "../dist/symbols.js";
 
 export const BUCKET = process.env.FLARE_SYMBOLS_BUCKET ?? "flare-symbols";
-// The shared Basin warehouse (TELEMETRY.md, "Querying").
-const WAREHOUSE = process.env.FLARE_TELEMETRY_WAREHOUSE ?? "YOUR_ACCOUNT_ID_telemetry";
+// Your Basin warehouse, `<account id>_telemetry` (TELEMETRY.md, "Querying").
+const WAREHOUSE = process.env.FLARE_TELEMETRY_WAREHOUSE;
 const CACHE = join(process.env.XDG_CACHE_HOME ?? join(homedir(), ".cache"), "flare-symbols");
 const APP = /^[a-z][a-z0-9_-]{0,31}$/;
 const BUILD = /^[A-Za-z0-9._-]{1,32}$/;
@@ -295,6 +295,7 @@ export function describe(row, app) {
 async function sql(query) {
   const token = process.env.WRANGLER_BASIN_SQL_AUTH_TOKEN ?? process.env.CLOUDFLARE_API_TOKEN;
   if (!token) fail("set WRANGLER_BASIN_SQL_AUTH_TOKEN or CLOUDFLARE_API_TOKEN (a token that can read the telemetry catalog)");
+  if (!WAREHOUSE) fail("set FLARE_TELEMETRY_WAREHOUSE to your Basin warehouse, <account id>_telemetry");
   const split = WAREHOUSE.indexOf("_");
   const url = `https://api.sql.cloudflarestorage.com/api/v1/accounts/${WAREHOUSE.slice(0, split)}/basin-sql/query/${WAREHOUSE.slice(split + 1)}`;
   const response = await fetch(url, {

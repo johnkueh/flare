@@ -26,7 +26,7 @@
   "flagship": [{ "binding": "FLAGS", "app_id": "flare-example" }],
   // Push notifications (@flare/push): notify() queues, the queue() handler sends.
   // APNS_KEY_P8, APNS_KEY_ID, APNS_TEAM_ID and FCM_SERVICE_ACCOUNT are secrets and
-  // APNS_TOPICS a var (`flare-push setup` sets them); without them sends are
+  // APNS_TOPICS a var (`flare-push setup` adds the var and lists the secrets); without them sends are
   // logged as failed and dropped.
   "queues": {
     "producers": [{ "binding": "PUSH_QUEUE", "queue": "flare-example-push" }],

@@ -1,0 +1,23 @@
+// A starting point for your own ingest Worker. Copy it to wrangler.jsonc
+// (telemetry/wrangler.jsonc in this repo is the maintainer's deployment),
+// fill in your stream id from "Setting up Basin" in TELEMETRY.md, and
+// `npx wrangler deploy`. Each app gets a public key in APP_KEYS (not a
+// secret: it ships in the app, like a GA4 id).
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "flare-telemetry",
+  "main": "src/worker.ts",
+  "compatibility_date": "2026-10-01",
+  "workers_dev": true,
+  "pipelines": [{ "binding": "EVENTS", "stream": "<your telemetry_events stream id>" }],
+  "vars": {
+    // "k_myapp_…": "myapp", one entry per app (`npx flare-telemetry init` makes a key)
+    "APP_KEYS": "{}",
+    // Search Console property -> app id, for the daily pull.
+    "GSC_SITES": "{}"
+  },
+  // The daily Search Console pull (src/gsc.ts). Does nothing until the
+  // GSC_SERVICE_ACCOUNT secret is set.
+  "triggers": { "crons": ["0 6 * * *"] },
+  "observability": { "enabled": true }
+}
