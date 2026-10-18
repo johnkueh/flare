@@ -149,6 +149,19 @@ def icon_push():
         body += f'<rect x="{x}" y="{y}" width="1" height="1" fill="{PAL["O"]}" class="dot" style="--i:{k % 3}"/>'
     return svg(24, 16, body, "A ringing bell with a badge", ANIM)
 
+LINK = [
+    "..XXXXXXX..", ".XXXXXXXXX.", "XX.......XX", "XX.......XX",
+    "XX.......XX", ".XXXXXXXXX.", "..XXXXXXX..",
+]
+
+def icon_links():
+    # Two chain links, the orange one passing over the dark one.
+    a = [r.replace("X", "O") for r in LINK]
+    b = [r.replace("X", "D") for r in LINK]
+    body = rects(a, 2, 3) + rects(b, 11, 6)
+    body += rects(["OO", "OO", "OO"], 11, 6)  # the orange link's right side, on top
+    return svg(24, 16, body, "Two chain links")
+
 def favicon():
     return svg(10, 14, rects(FLAME_A, 0, 0), "Flare")
 
@@ -156,6 +169,7 @@ if __name__ == "__main__":
     OUT.mkdir(parents=True, exist_ok=True)
     for name, s in {"hero.svg": hero(), "sync.svg": icon_sync(), "auth.svg": icon_auth(),
                     "analytics.svg": icon_analytics(), "flags.svg": icon_flags(), "push.svg": icon_push(),
+                    "links.svg": icon_links(),
                     "flame.svg": favicon()}.items():
         (OUT / name).write_text(s)
         print(name, len(s))
