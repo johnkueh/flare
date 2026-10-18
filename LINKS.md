@@ -52,9 +52,11 @@ both apps read:
   inside Instagram's or TikTok's browser, doesn't open the app by itself.
 - `ios.store`: an App Store page (a custom product page is fine) or a
   TestFlight link. `appStoreId` adds Safari's Smart App Banner.
-- `android.sha256`: the Play app signing key (Play Console → Test and
-  release → App integrity) for builds installed from Play, plus any debug
-  key. With colons or without.
+- `android.sha256`: the Play app signing key for builds installed from
+  Play, plus any debug key. With colons or without. `npx flare-links
+  play-sha --write` reads the Play key from the Play Developer API (a
+  service account with access to the app, `--key` or `PLAY_JSON_KEY`) and
+  adds it. Not the upload key: Play re-signs what it installs.
 
 ## The Worker
 
@@ -93,10 +95,24 @@ makes a link on the server.
 
 ## iOS
 
-`FlareLinks` and `PasteLinkButton` are in `SyncClient`. Add `links.json` to
-the app target, the Associated Domains capability with
-`applinks:example.com`, and the URL scheme if the app doesn't register it
-already. `npx flare-links setup` prints both.
+`FlareLinks` and `PasteLinkButton` are in `SyncClient`. Then:
+
+1. `links.json` in the app target. Drag the shared file into Xcode with
+   "Copy items if needed" unticked: Xcode copies it into the bundle on
+   every build. A symlink inside a synchronized folder works too.
+   `npx flare-links check --app <built .app>` confirms the bundle has the
+   same file.
+2. The Associated Domains capability with `applinks:example.com`, and the
+   URL scheme if the app doesn't register it already. `npx flare-links
+   setup` prints both.
+3. The App ID needs Associated Domains on as well:
+
+   ```sh
+   npx flare-links apple   # each ios.appIds entry; ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_FILEPATH
+   ```
+
+   (fastlane's `update_capability` fails on this one with
+   "Unauthenticated"; the command uses the documented API call.)
 
 ```swift
 let links = FlareLinks(config: try .bundled(), onEvent: { name, params in telemetry.track(name, params) })
@@ -126,8 +142,20 @@ ShareLink(item: links.url("invite", ["code": space.code]))
 
 ## Android
 
-`FlareLinks` is in `com.johnkueh.sync.client`. Put `links.json` in
-`assets/`, add `implementation("com.android.installreferrer:installreferrer:2.2")`
+`FlareLinks` is in `com.johnkueh.sync.client`. Copy the shared
+`links.json` into `assets/` at build time, in `app/build.gradle.kts` (the
+path is relative to the app module):
+
+```kotlin
+val flareLinks = tasks.register<Copy>("flareLinks") {
+    from(file("../../links.json"))
+    into(layout.buildDirectory.dir("generated/flareLinks"))
+}
+android.sourceSets["main"].assets.srcDir(layout.buildDirectory.dir("generated/flareLinks"))
+tasks.named("preBuild") { dependsOn(flareLinks) }
+```
+
+Then add `implementation("com.android.installreferrer:installreferrer:2.2")`
 and the intent filters (`npx flare-links setup` prints them):
 
 ```xml
@@ -163,10 +191,24 @@ links.url("invite", mapOf("code" to space.code))
 `claimDeferred()` asks Play once and returns null after that, or when the
 app wasn't installed from Play. `claim(pastedText)` reads a pasted link.
 
+## Telemetry
+
+`opened` and `claim` report `link_opened {kind}` and `link_deferred_claimed
+{kind, via}` through `onEvent`. Add them to the app's `events.json` once:
+
+```sh
+npx flare-links events [path/to/events.json]
+```
+
+It writes whichever params style the file already uses. Run the app's
+events codegen afterwards if it has one.
+
 ## Check it
 
 ```sh
-npx flare-links check          # reads ./links.json
+npx flare-links check                      # reads ./links.json
+npx flare-links check --wait               # also wait (up to 15 min) for Apple's CDN
+npx flare-links check --app build/App.app  # and the links.json inside a built .app/.ipa/.apk/.aab
 ```
 
 It fetches both files from the live domain (and www), compares them with
@@ -179,9 +221,14 @@ prints a link.
 - A Universal Link doesn't open the app when it's typed into Safari or
   tapped on a page of the same domain. That's what the Open button is for.
 - Apple reads the association file when the app is installed or updated,
-  through its CDN. After changing paths, reinstall to test.
+  through its CDN, which can answer 404 for minutes after a first deploy
+  (and caches that 404). `check --wait` waits it out; a Debug build with
+  `applinks:example.com?mode=developer` reads the domain directly on
+  simulators and on devices with Developer Mode on. After changing paths,
+  reinstall to test.
 - Android verifies App Links against the certificate that signed the
   installed app. Builds from Play are signed with the Play app signing
-  key, not your upload key.
+  key, not your upload key: `play-sha --write` adds it, and `check` warns
+  when `android.sha256` only has this machine's debug key.
 - Adding the associated domain or intent filter is a native change, so it
   ships with the next store build. The Worker side can go out first.
