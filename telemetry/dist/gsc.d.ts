@@ -21,7 +21,11 @@ export declare const FINAL_AFTER_DAYS = 3;
 export declare function gscRow(site: string, appId: string, date: string, r: GscApiRow, receivedAt: string): Row;
 /** The UTC date `days` before `now`, as YYYY-MM-DD. */
 export declare function daysAgo(now: number, days: number): string;
-/** Pulls one day for every site in GSC_SITES. Returns rows written per site. */
-export declare function pullDay(env: GscEnv, date: string, fetcher?: typeof fetch): Promise<Record<string, number>>;
-/** POST /v1/gsc/pull {"date": "YYYY-MM-DD"} with `authorization: Bearer <GSC_ADMIN_TOKEN>`. */
+/** Pulls one day for every site in GSC_SITES, or only `site`. Returns rows written per site. */
+export declare function pullDay(env: GscEnv, date: string, fetcher?: typeof fetch, site?: string): Promise<Record<string, number>>;
+/**
+ * POST /v1/gsc/pull {"date": "YYYY-MM-DD", "site"?: "sc-domain:…"} with
+ * `authorization: Bearer <GSC_ADMIN_TOKEN>`. With `site`, only that property is
+ * pulled, so backfilling a newly added site doesn't write the others' rows again.
+ */
 export declare function handleGscPull(request: Request, env: GscEnv): Promise<Response>;

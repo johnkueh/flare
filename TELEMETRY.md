@@ -280,12 +280,27 @@ Setup, once:
 3. List the properties in `GSC_SITES` (`{"sc-domain:ledgersignal.com":
    "ledgersignal"}`) and deploy.
 
-To backfill (the API keeps 16 months), set `GSC_ADMIN_TOKEN` and post a day
-at a time:
+One service account and one Worker serve every product: a new site is one
+more entry in `GSC_SITES` plus the service account added to that property.
+A property that refuses the pull (usually because the service account isn't
+on it yet) is logged as a failure, and the other sites are still pulled.
+
+To backfill (the API keeps 16 months), set `GSC_ADMIN_TOKEN` and run the
+CLI, which posts one day at a time and stops at the first failure:
+
+```sh
+FLARE_GSC_ADMIN_TOKEN=… npx flare-telemetry gsc --url https://<your telemetry Worker> \
+  --from 2025-06-20 --site sc-domain:ledgersignal.com
+```
+
+`--to` defaults to three days ago. Pass `--site` when backfilling a newly
+added property so the other sites' days aren't written again. Moving a
+product off GA4 and BigQuery needs no BigQuery hop for search data: backfill
+the 16 months straight from the API. The same endpoint takes one day:
 
 ```sh
 curl -X POST https://<your telemetry Worker>/v1/gsc/pull \
-  -H "authorization: Bearer $GSC_ADMIN_TOKEN" -d '{"date":"2026-06-01"}'
+  -H "authorization: Bearer $GSC_ADMIN_TOKEN" -d '{"date":"2026-06-01","site":"sc-domain:ledgersignal.com"}'
 ```
 
 ```sql

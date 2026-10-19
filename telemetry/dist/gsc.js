@@ -100,27 +100,36 @@ export function gscRow(site, appId, date, r, receivedAt) {
 export function daysAgo(now, days) {
     return new Date(now - days * 86_400_000).toISOString().slice(0, 10);
 }
-/** Pulls one day for every site in GSC_SITES. Returns rows written per site. */
-export async function pullDay(env, date, fetcher = fetch) {
+/** Pulls one day for every site in GSC_SITES, or only `site`. Returns rows written per site. */
+export async function pullDay(env, date, fetcher = fetch, site) {
     if (!env.GSC_SERVICE_ACCOUNT)
         throw new Error("GSC_SERVICE_ACCOUNT is not set");
-    const sites = JSON.parse(env.GSC_SITES || "{}");
+    let sites = JSON.parse(env.GSC_SITES || "{}");
+    if (site) {
+        if (!(site in sites))
+            throw new Error(`${site} is not in GSC_SITES`);
+        sites = { [site]: sites[site] };
+    }
     const token = await accessToken(env.GSC_SERVICE_ACCOUNT, fetcher);
     const receivedAt = new Date().toISOString();
     const written = {};
-    for (const [site, appId] of Object.entries(sites)) {
+    const failed = [];
+    properties: for (const [property, appId] of Object.entries(sites)) {
         let startRow = 0;
         let total = 0;
         while (startRow < MAX_ROWS) {
-            const res = await fetcher(`https://www.googleapis.com/webmasters/v3/sites/${encodeURIComponent(site)}/searchAnalytics/query`, {
+            const res = await fetcher(`https://www.googleapis.com/webmasters/v3/sites/${encodeURIComponent(property)}/searchAnalytics/query`, {
                 method: "POST",
                 headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
                 body: JSON.stringify({ startDate: date, endDate: date, dimensions: DIMENSIONS, rowLimit: PAGE_SIZE, startRow, dataState: "final" }),
             });
-            if (!res.ok)
-                throw new Error(`Search Console ${site} ${date}: ${res.status} ${await res.text()}`);
+            // One property failing (say, the service account isn't on it yet) doesn't stop the others.
+            if (!res.ok) {
+                failed.push(`Search Console ${property} ${date}: ${res.status} ${await res.text()}`);
+                continue properties;
+            }
             const rows = (await res.json()).rows ?? [];
-            const out = rows.map((r) => gscRow(site, appId, date, r, receivedAt));
+            const out = rows.map((r) => gscRow(property, appId, date, r, receivedAt));
             for (let i = 0; i < out.length; i += SEND_CHUNK)
                 await env.EVENTS.send(out.slice(i, i + SEND_CHUNK));
             total += out.length;
@@ -128,22 +137,31 @@ export async function pullDay(env, date, fetcher = fetch) {
                 break;
             startRow += PAGE_SIZE;
         }
-        written[site] = total;
+        written[property] = total;
     }
+    if (failed.length > 0)
+        throw new Error(`${failed.join("\n")}\nwritten: ${JSON.stringify(written)}`);
     return written;
 }
-/** POST /v1/gsc/pull {"date": "YYYY-MM-DD"} with `authorization: Bearer <GSC_ADMIN_TOKEN>`. */
+/**
+ * POST /v1/gsc/pull {"date": "YYYY-MM-DD", "site"?: "sc-domain:…"} with
+ * `authorization: Bearer <GSC_ADMIN_TOKEN>`. With `site`, only that property is
+ * pulled, so backfilling a newly added site doesn't write the others' rows again.
+ */
 export async function handleGscPull(request, env) {
     if (!env.GSC_ADMIN_TOKEN || request.headers.get("authorization") !== `Bearer ${env.GSC_ADMIN_TOKEN}`) {
         return Response.json({ error: "unauthorized" }, { status: 401 });
     }
     if (request.method !== "POST")
         return Response.json({ error: "use POST" }, { status: 405 });
-    const { date } = (await request.json().catch(() => ({})));
+    const { date, site } = (await request.json().catch(() => ({})));
     if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date))
         return Response.json({ error: 'body needs {"date": "YYYY-MM-DD"}' }, { status: 400 });
+    if (site !== undefined && !(site in JSON.parse(env.GSC_SITES || "{}"))) {
+        return Response.json({ error: `${site} is not in GSC_SITES` }, { status: 400 });
+    }
     try {
-        return Response.json({ date, written: await pullDay(env, date) });
+        return Response.json({ date, written: await pullDay(env, date, fetch, site) });
     }
     catch (e) {
         return Response.json({ error: e.message }, { status: 502 });
