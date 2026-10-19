@@ -229,6 +229,9 @@ flush when the tab is hidden, and retry on network errors, 408, 429 and
 5xx. It also sends a `page_view {path, referrer}` on load and on every
 History API navigation (any router), without the query string, and an
 `error` for uncaught errors and rejections, in the crash shape above.
+When a path segment names a customer (a case or client slug), pass
+`pagePath: (p) => p.replace(/^\/cases\/[^/]+/, "/cases/:slug")` so the
+table holds the route, not the name.
 
 It posts to `/api/events` on the page's own origin, so ad blockers and
 CORS stay out of it, and keeps its ids in a first-party `flare_ids` cookie

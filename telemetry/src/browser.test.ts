@@ -132,3 +132,28 @@ test("track is typed from events.json", () => {
   t.track("csv_exported", { other: 1 });
   t.close();
 });
+
+test("pagePath rewrites page_view paths, and a throwing rewrite still sends the view", async () => {
+  const s = setup();
+  const t = telemetry({
+    appId: "ledgersignal",
+    appKey: "k_test",
+    storage: s.storage,
+    fetch: (async (url: string, init: RequestInit) => {
+      s.sent.push({ url, init, body: JSON.parse(init.body as string) });
+      return new Response(null, { status: 204 });
+    }) as typeof globalThis.fetch,
+    flushIntervalMs: 60_000,
+    pagePath: (p) => {
+      if (p === "/boom") throw new Error("bug");
+      return p.replace(/^\/cases\/[^/]+/, "/cases/:slug");
+    },
+  });
+  t.pageView("/cases/smith-pty-ltd/transactions");
+  t.pageView("/cases/jones/transactions");
+  t.pageView("/boom");
+  await t.flush();
+  t.close();
+  const views = s.sent[0].body.events.filter((e: any) => e.name === "page_view").map((e: any) => e.params.path);
+  assert.deepEqual(views, ["/cases/:slug/transactions", "/boom"], "the same rewritten path twice is one view");
+});

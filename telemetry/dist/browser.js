@@ -194,7 +194,15 @@ export function telemetry(options) {
         };
     };
     const pageView = (path) => {
-        const p = path ?? (hasWindow ? window.location.pathname : "/");
+        const raw = path ?? (hasWindow ? window.location.pathname : "/");
+        let p = raw;
+        try {
+            if (options.pagePath)
+                p = options.pagePath(raw);
+        }
+        catch {
+            // The rewrite is the app's; a bug in it still sends the view.
+        }
         if (p === lastPath)
             return;
         lastPath = p;
