@@ -52,6 +52,11 @@ export interface TelemetryOptions<E extends EventsFile> {
   appBuild?: string;
   /** Send a `page_view` on load and on every History API navigation. Default true. */
   pageViews?: boolean;
+  /**
+   * Rewrites each `page_view` path before it's sent, e.g. `/cases/smith-pty-ltd` to
+   * `/cases/:slug` when a path segment names a customer. Default: the path as it is.
+   */
+  pagePath?: (path: string) => string;
   /** Send an `error` for uncaught errors and unhandled rejections. Default true. */
   errors?: boolean;
   /** Keep the ids in a first-party cookie for the Worker. Default true. */
@@ -269,7 +274,13 @@ export function telemetry<E extends EventsFile = AnyEvents>(options: TelemetryOp
   };
 
   const pageView = (path?: string) => {
-    const p = path ?? (hasWindow ? window.location.pathname : "/");
+    const raw = path ?? (hasWindow ? window.location.pathname : "/");
+    let p = raw;
+    try {
+      if (options.pagePath) p = options.pagePath(raw);
+    } catch {
+      // The rewrite is the app's; a bug in it still sends the view.
+    }
     if (p === lastPath) return;
     lastPath = p;
     const params: Params = { path: p };
