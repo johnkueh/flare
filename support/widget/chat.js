@@ -51,6 +51,14 @@
     identityKnown: false,
   };
 
+  // The launcher always reports who the visitor is (or that it can't tell) once the page's token
+  // endpoint answers. Wait for that before starting a session, or a signed-in user who types
+  // quickly would be treated as a visitor.
+  let identityArrived;
+  const identityReady = new Promise((resolve) => {
+    identityArrived = resolve;
+  });
+
   const parent = (data) => window.parent.postMessage({ source: "flare-support", ...data }, "*");
 
   const api = async (path, opts = {}) => {
@@ -103,6 +111,7 @@
         state.session = null;
       }
     }
+    identityArrived();
     render();
   }
 
@@ -204,6 +213,7 @@
     }
     state.sending = true;
     try {
+      await Promise.race([identityReady, new Promise((r) => setTimeout(r, 5000))]);
       if (!state.session) await startSession(null);
       const res = await api("/v1/conversations", { method: "POST", body: JSON.stringify({ body }) });
       state.current = res.id;

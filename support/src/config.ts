@@ -38,6 +38,8 @@ export type AppConfig = {
   notify?: string;
   /** Widget accent colour. */
   accent?: string;
+  /** Widget colours: "light" (default), "dark", or "auto" to follow the visitor's system setting. */
+  theme?: "light" | "dark" | "auto";
   /** First line in an empty widget. */
   greeting?: string;
 };

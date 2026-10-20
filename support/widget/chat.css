@@ -1,5 +1,6 @@
 :root{--accent:#1b1f1d;--on-accent:#fff;--bg:#fff;--bg-soft:#f4f5f3;--text:#1b1f1d;--muted:#6b716d;--border:#e3e6e3;--danger:#b91c1c;color-scheme:light}
-@media (prefers-color-scheme:dark){:root{--bg:#161817;--bg-soft:#222523;--text:#eef0ee;--muted:#9aa19c;--border:#2e322f;color-scheme:dark}}
+@media (prefers-color-scheme:dark){:root.auto{--bg:#161817;--bg-soft:#222523;--text:#eef0ee;--muted:#9aa19c;--border:#2e322f;color-scheme:dark}}
+:root.dark{--bg:#161817;--bg-soft:#222523;--text:#eef0ee;--muted:#9aa19c;--border:#2e322f;color-scheme:dark}
 *{box-sizing:border-box}
 [hidden]{display:none!important}
 html,body{height:100%;margin:0}

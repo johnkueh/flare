@@ -18,8 +18,9 @@ export function loaderResponse(): Response {
 
 export function chatResponse(appId: string, app: AppConfig): Response {
   const accent = app.accent && HEX.test(app.accent) ? app.accent : "#1b1f1d";
+  const theme = app.theme === "dark" || app.theme === "auto" ? app.theme : "light";
   const config = { app: appId, name: app.name, greeting: app.greeting ?? "", origins: app.origins };
-  const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  const html = `<!doctype html><html lang="en" class="${theme}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${escape(app.name)} support</title><style>${CHAT_CSS}:root{--accent:${accent}}</style></head><body>
 <header><button id="back" type="button" aria-label="Back" hidden><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg></button>
 <p class="title" id="title"></p>
