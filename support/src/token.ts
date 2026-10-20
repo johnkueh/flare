@@ -15,9 +15,11 @@ const encoder = new TextEncoder();
 
 const b64url = (bytes: Uint8Array) => btoa(String.fromCharCode(...bytes)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 
-function fromB64url(s: string): Uint8Array {
+function fromB64url(s: string): Uint8Array<ArrayBuffer> {
   const bin = atob(s.replace(/-/g, "+").replace(/_/g, "/"));
-  return Uint8Array.from(bin, (c) => c.charCodeAt(0));
+  const out = new Uint8Array(new ArrayBuffer(bin.length));
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
 }
 
 const keys = new Map<string, Promise<CryptoKey>>();
