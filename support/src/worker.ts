@@ -9,10 +9,10 @@
 
 import { OAuthProvider } from "@cloudflare/workers-oauth-provider";
 import { handleAuthorize, isAdminKey } from "./admin.ts";
-import { conversationStub, handleApi, startConversation } from "./api.ts";
+import { conversationStub, handleApi } from "./api.ts";
 import { app as appConfig, appForDomain, type SupportEnv } from "./config.ts";
 import { parseInbound, parseReplyAddress } from "./email.ts";
-import { contactForEmail, getContact, getConversationRow } from "./inbox.ts";
+import { getContact, getConversationRow } from "./inbox.ts";
 import { handleMcp } from "./mcp.ts";
 import { chatResponse, loaderResponse } from "./widget.ts";
 
@@ -71,40 +71,31 @@ function provider(env: Env): OAuthProvider<Env> {
 }
 
 async function receiveEmail(message: ForwardableEmailMessage, env: Env) {
+  // Only replies come in by email: each email we send carries a signed reply-to address for its
+  // conversation. Anything else sent here is refused, so a stray or guessed address starts nothing.
   const domain = message.to.split("@")[1] ?? "";
   const appId = appForDomain(env, domain);
   const app = appConfig(env, appId);
-  if (!(appId && app?.email)) {
-    message.setReject("Unknown address");
+  const reply = appId && app?.email ? await parseReplyAddress(env, message.to) : null;
+  const row = reply ? await getConversationRow(env, reply.conversationId) : null;
+  if (!(reply && row && row.app === appId && app)) {
+    message.setReject("This address only takes replies to support emails");
     return;
   }
   const mail = await parseInbound(message.raw, { from: message.from, to: message.to }, message.headers);
-  // Out-of-office replies and our own mail would only loop.
-  if (mail.auto || mail.from === app.email.toLowerCase() || mail.from === app.inbound?.toLowerCase()) return;
-  if (!mail.body) return;
+  // Out-of-office replies would only loop.
+  if (mail.auto || !mail.body) return;
 
-  const reply = await parseReplyAddress(env, message.to);
-  const row = reply ? await getConversationRow(env, reply.conversationId) : null;
-  if (reply && row && row.app === appId) {
-    const conversation = conversationStub(env, row.id);
-    if (reply.kind === "a") {
-      // The team answering from the notification email. Only from the notify address.
-      if (mail.from !== app.notify?.toLowerCase()) return;
-      await conversation.post({ author: "agent", body: mail.body, via: "email", authorName: mail.fromName?.split(" ")[0] });
-      return;
-    }
-    const contact = await getContact(env, row.contact_id);
-    if (contact?.email && contact.email.toLowerCase() === mail.from) {
-      if (mail.messageId) await conversation.rememberEmail(mail.messageId);
-      await conversation.post({ author: "customer", body: mail.body, via: "email" });
-      return;
-    }
-    // Someone else replying to a forwarded email: a new conversation of their own, below.
+  const conversation = conversationStub(env, row.id);
+  if (reply.kind === "a") {
+    // The team answering from the notification email. Only from the notify address.
+    if (mail.from !== app.notify?.toLowerCase()) return;
+    await conversation.post({ author: "agent", body: mail.body, via: "email", authorName: mail.fromName?.split(" ")[0] });
+    return;
   }
-
-  const contact = await contactForEmail(env, appId, mail.from, mail.fromName);
-  const subject = mail.subject.replace(/^(re|fwd?):\s*/i, "").slice(0, 120) || mail.body.slice(0, 80);
-  const { conversation } = await startConversation(env, { app: appId, contactId: contact.id, subject, channel: "email" });
+  // The customer answering our email. Someone else replying to a forwarded copy is ignored.
+  const contact = await getContact(env, row.contact_id);
+  if (!(contact?.email && contact.email.toLowerCase() === mail.from)) return;
   if (mail.messageId) await conversation.rememberEmail(mail.messageId);
   await conversation.post({ author: "customer", body: mail.body, via: "email" });
 }

@@ -16,7 +16,7 @@
         "notify": "team@acme.test",
         "accent": "#2255aa"
       },
-      "other": { "name": "Other", "origins": ["https://other.test"], "email": "help@other.test", "inbound": "help@in.other.test", "notify": "team@other.test" }
+      "other": { "name": "Other", "origins": ["https://other.test"], "email": "john@other.test", "inbound": "help@in.other.test", "notify": "john@other.test" }
     }
   },
   "d1_databases": [{ "binding": "DB", "database_name": "flare-support-test", "database_id": "00000000-0000-0000-0000-000000000000" }],

@@ -257,59 +257,70 @@ describe("inbox over MCP", () => {
 });
 
 describe("email", () => {
-  it("turns mail to the support address into a conversation, and threads the replies", async () => {
-    await deliver({ from: "Robin <robin@client.test>", to: "support@acme.test", subject: "Invoice question", body: "Where is my invoice?" });
+  it("threads email replies from the customer and the team into the conversation", async () => {
+    const { id } = await tool<{ id: string }>("start_conversation", { app: "acme", email: "robin@client.test", subject: "Invoice question", body: "Did your invoice arrive?", author_name: "John" });
+    await settle();
+    const [toCustomer] = await outbox();
+    expect(toCustomer).toMatchObject({ to: "robin@client.test", subject: "Re: Invoice question" });
+
+    // The customer replies, and the team hears about it.
+    await clearOutbox();
+    await deliver({ from: "Robin <robin@client.test>", to: toCustomer?.replyTo as string, subject: "Re: Invoice question", body: "Where is it?\n\n> Did your invoice arrive?" });
     const [notice] = await outbox();
     expect(notice?.to).toBe("team@acme.test");
-    const conv = await parseReplyAddress(env, notice?.replyTo ?? "");
-    expect(conv?.kind).toBe("a");
-    const id = conv?.conversationId as string;
+    expect(await parseReplyAddress(env, notice?.replyTo ?? "")).toEqual({ kind: "a", conversationId: id });
 
     // The team answers by replying to the notification.
     await clearOutbox();
-    await deliver({ from: "John <team@acme.test>", to: notice?.replyTo as string, subject: "Re: New", body: "It's in Billing.\n\nOn Mon, 20 Oct 2026, Acme wrote:\n> Where is my invoice?" });
-    const [toCustomer] = await outbox();
-    expect(toCustomer).toMatchObject({ to: "robin@client.test", subject: "Re: Invoice question" });
-    expect(toCustomer?.text).toContain("It's in Billing.");
-    expect(toCustomer?.text).not.toContain("> Where is my invoice?");
+    await deliver({ from: "John <team@acme.test>", to: notice?.replyTo as string, subject: "Re: New", body: "It's in Billing.\n\nOn Mon, 20 Oct 2026, Acme wrote:\n> Where is it?" });
+    const [answer] = await outbox();
+    expect(answer).toMatchObject({ to: "robin@client.test" });
+    expect(answer?.text).toContain("It's in Billing.");
+    expect(answer?.text).not.toContain("> Where is it?");
 
-    // The customer replies to that.
-    await clearOutbox();
-    await deliver({ from: "robin@client.test", to: toCustomer?.replyTo as string, subject: "Re: Invoice question", body: "Found it, thanks!\n\n> It's in Billing." });
-    const thread = await tool<{ messages: { author: string; body: string; via: string }[]; waitingOn: string }>("get_conversation", { id });
+    const thread = await tool<{ messages: { author: string; body: string }[]; waitingOn: string }>("get_conversation", { id });
     expect(thread.messages.map((m) => [m.author, m.body])).toEqual([
-      ["customer", "Where is my invoice?"],
+      ["agent", "Did your invoice arrive?"],
+      ["customer", "Where is it?"],
       ["agent", "It's in Billing."],
-      ["customer", "Found it, thanks!"],
     ]);
-    expect(thread.waitingOn).toBe("us");
+    expect(thread.waitingOn).toBe("customer");
   });
 
-  it("ignores forged reply addresses, strangers posing as the team, and auto-replies", async () => {
-    await deliver({ from: "robin@client.test", to: "support@acme.test", subject: "Hi", body: "first" });
-    const [notice] = await outbox();
-    const id = (await parseReplyAddress(env, notice?.replyTo ?? ""))?.conversationId as string;
-    const before = (await tool<{ messages: unknown[] }>("get_conversation", { id })).messages.length;
+  it("takes only replies: no new conversations from plain mail, forged addresses, strangers or auto-replies", async () => {
+    const open = async () => (await tool<{ apps: Record<string, { open: number }> }>("stats", {})).apps.acme?.open ?? 0;
+    const before = await open();
+    expect(await deliver({ from: "robin@client.test", to: "support@acme.test", subject: "Hi", body: "first" })).toEqual({ rejected: "This address only takes replies to support emails" });
+    expect(await deliver({ from: "robin@client.test", to: "support+c.cv_abc.AAAAAAAAAAAAAAAA@acme.test", subject: "Re", body: "forged" })).toEqual({ rejected: "This address only takes replies to support emails" });
+    expect(await deliver({ from: "x@y.test", to: "help@unknown.test", subject: "?", body: "?" })).toEqual({ rejected: "This address only takes replies to support emails" });
+    expect(await open()).toBe(before);
 
-    await deliver({ from: "robin@client.test", to: notice?.replyTo as string, subject: "Re", body: "I'm the team now" });
-    await deliver({ from: "robin@client.test", to: "support+c.cv_abc.AAAAAAAAAAAAAAAA@acme.test", subject: "Re", body: "forged" });
-    await deliver({ from: "robin@client.test", to: "support@acme.test", subject: "Out of office", body: "away", extra: "Auto-Submitted: auto-replied" });
-    expect((await tool<{ messages: unknown[] }>("get_conversation", { id })).messages.length).toBe(before);
-    expect(await deliver({ from: "x@y.test", to: "help@unknown.test", subject: "?", body: "?" })).toEqual({ rejected: "Unknown address" });
-  });
-
-  it("uses the inbound address when the main domain's mail lives elsewhere", async () => {
-    await deliver({ from: "ash@client.test", to: "help@in.other.test", subject: "Forwarded from Gmail", body: "hello other" });
-    const [notice] = await outbox();
-    expect(notice).toMatchObject({ to: "team@other.test", from: { email: "help@other.test", name: "Other support" } });
-    expect(notice?.replyTo).toMatch(/^help\+a\.cv_\w+\.[\w-]{16}@in\.other\.test$/);
-    const id = (await parseReplyAddress(env, notice?.replyTo ?? ""))?.conversationId as string;
-    await clearOutbox();
-    await tool("reply", { id, body: "hi ash" });
+    const { id } = await tool<{ id: string }>("start_conversation", { app: "acme", email: "robin@client.test", subject: "Hi", body: "hello" });
     await settle();
     const [toCustomer] = await outbox();
-    expect(toCustomer).toMatchObject({ to: "ash@client.test", from: { email: "help@other.test" } });
-    expect(toCustomer?.replyTo).toMatch(/@in\.other\.test$/);
+    const notice = (await replyAddress(env, ACME, "a", id)) as string;
+    await deliver({ from: "robin@client.test", to: notice, subject: "Re", body: "I'm the team now" });
+    await deliver({ from: "mallory@client.test", to: toCustomer?.replyTo as string, subject: "Re", body: "not robin" });
+    await deliver({ from: "robin@client.test", to: toCustomer?.replyTo as string, subject: "Out of office", body: "away", extra: "Auto-Submitted: auto-replied" });
+    expect((await tool<{ messages: unknown[] }>("get_conversation", { id })).messages).toHaveLength(1);
+  });
+
+  it("sends from the app's address and takes replies on the inbound address, even when the team writes from that same address", async () => {
+    const { id } = await tool<{ id: string }>("start_conversation", { app: "other", email: "ash@client.test", subject: "Hello", body: "hi ash" });
+    await settle();
+    const [toCustomer] = await outbox();
+    expect(toCustomer).toMatchObject({ to: "ash@client.test", from: { email: "john@other.test" } });
+    expect(toCustomer?.replyTo).toMatch(/^help\+c\.cv_\w+\.[\w-]{16}@in\.other\.test$/);
+
+    await clearOutbox();
+    await deliver({ from: "ash@client.test", to: toCustomer?.replyTo as string, subject: "Re: Hello", body: "hello back" });
+    const [notice] = await outbox();
+    expect(notice).toMatchObject({ to: "john@other.test", from: { email: "john@other.test" } });
+
+    // The notify address is also the From address; the team's reply must still get through.
+    await deliver({ from: "John <john@other.test>", to: notice?.replyTo as string, subject: "Re", body: "great" });
+    const thread = await tool<{ messages: { author: string; body: string }[] }>("get_conversation", { id });
+    expect(thread.messages.map((m) => m.body)).toEqual(["hi ash", "hello back", "great"]);
   });
 
   it("signs reply addresses per conversation and kind", async () => {
