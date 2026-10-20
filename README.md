@@ -70,6 +70,7 @@ pnpm add "@flare/auth@github:johnkueh/flare#0.6.1&path:/auth"   # accounts (AUTH
 pnpm add "@flare/flags@github:johnkueh/flare#0.6.1&path:/flags" # feature flags (FLAGS.md)
 pnpm add "@flare/push@github:johnkueh/flare#0.6.1&path:/push"   # push notifications (PUSH.md)
 pnpm add "@flare/links@github:johnkueh/flare#0.6.1&path:/links" # deep links (LINKS.md); then npx flare-links setup
+pnpm add "@flare/billing@github:johnkueh/flare#<tag>&path:/billing" # App Store and Play subscriptions (BILLING.md)
 ```
 
 ```ts
@@ -104,6 +105,7 @@ try store.putDoc(collection: "groceries", doc: id, fieldsJson: #"{"name":"Milk"}
 - [AUTH.md](AUTH.md): accounts on Better Auth, signing in from a phone
 - [FLAGS.md](FLAGS.md): feature flags on Cloudflare Flagship, for iOS, Android, web, Node and Rust
 - [PUSH.md](PUSH.md): push notifications to APNs and FCM from your Worker, and asking for permission gracefully
+- [BILLING.md](BILLING.md): App Store and Google Play subscriptions checked in your Worker, one payer covering a household
 - [LINKS.md](LINKS.md): deep links that open the app, and survive an install, served by your Worker
 - [SUPPORT.md](SUPPORT.md): a support chat widget and inbox, with email both ways, that you run from Claude
 - [TELEMETRY.md](TELEMETRY.md): product analytics and crash reporting into Cloudflare Basin, from a Rust SDK

@@ -1,0 +1,32 @@
+{
+  "name": "@flare/billing",
+  "private": true,
+  "type": "module",
+  "description": "App Store and Google Play subscriptions for apps on Flare: the store's signed data checked in the Worker, status re-read on every notification, access in the app's D1, one payer covering a household. Cloudflare only and no npm dependencies (see BILLING.md).",
+  "exports": {
+    ".": "./src/index.ts",
+    "./spaces": "./src/spaces.ts"
+  },
+  "scripts": {
+    "test": "node --test --experimental-strip-types --experimental-sqlite src/*.test.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20261014.1",
+    "@sync/server": "link:../server",
+    "@types/node": "^22",
+    "typescript": "^5.9.3"
+  },
+  "peerDependencies": {
+    "@sync/server": "*"
+  },
+  "peerDependenciesMeta": {
+    "@sync/server": {
+      "optional": true
+    }
+  },
+  "files": [
+    "src",
+    "migrations"
+  ]
+}
