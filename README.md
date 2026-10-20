@@ -6,7 +6,7 @@
 Worker: phones work offline, share data with each other, and catch up the
 moment they're back online.
 
-Sync, auth, feature flags, push notifications, deep links, product analytics and crash reporting, in one repo. Website: [flare.jkyf.dev](https://flare.jkyf.dev).
+Sync, auth, feature flags, push notifications, deep links, product analytics, crash reporting and a support chat, in one repo. Website: [flare.jkyf.dev](https://flare.jkyf.dev).
 
 ## What you get
 
@@ -50,6 +50,9 @@ in batches to Iceberg tables you query with SQL. Crashes, hangs and errors
 arrive the same way, with their stack and the last 30 events before them,
 from MetricKit on iOS and the platform's own crash records on Android. No
 Firebase, no Sentry, no extra SDK.
+
+**Support chat.** A chat bubble for your site with email both ways, one
+inbox for all your apps, and Claude to answer from. No Intercom.
 
 <img align="right" src="docs/cheap.svg" width="288" alt="A space's server sleeps until someone syncs">
 
@@ -102,4 +105,5 @@ try store.putDoc(collection: "groceries", doc: id, fieldsJson: #"{"name":"Milk"}
 - [FLAGS.md](FLAGS.md): feature flags on Cloudflare Flagship, for iOS, Android, web, Node and Rust
 - [PUSH.md](PUSH.md): push notifications to APNs and FCM from your Worker, and asking for permission gracefully
 - [LINKS.md](LINKS.md): deep links that open the app, and survive an install, served by your Worker
+- [SUPPORT.md](SUPPORT.md): a support chat widget and inbox, with email both ways, that you run from Claude
 - [TELEMETRY.md](TELEMETRY.md): product analytics and crash reporting into Cloudflare Basin, from a Rust SDK

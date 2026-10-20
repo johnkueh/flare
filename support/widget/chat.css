@@ -1,0 +1,52 @@
+:root{--accent:#1b1f1d;--on-accent:#fff;--bg:#fff;--bg-soft:#f4f5f3;--text:#1b1f1d;--muted:#6b716d;--border:#e3e6e3;--danger:#b91c1c;color-scheme:light}
+@media (prefers-color-scheme:dark){:root{--bg:#161817;--bg-soft:#222523;--text:#eef0ee;--muted:#9aa19c;--border:#2e322f;color-scheme:dark}}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--text);font:15px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;display:flex;flex-direction:column;-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;cursor:pointer}
+header{display:flex;align-items:center;gap:4px;padding:12px 8px 12px 16px;background:var(--accent);color:var(--on-accent);flex:none}
+header .title{flex:1;font-weight:600;font-size:16px;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+header button{background:none;border:0;width:36px;height:36px;border-radius:8px;display:grid;place-items:center;color:var(--on-accent)}
+header button:hover{background:rgba(255,255,255,.14)}
+header button:focus-visible{outline:2px solid var(--on-accent);outline-offset:-2px}
+#back{margin-left:-8px}
+main{flex:1;min-height:0;display:flex;flex-direction:column;overflow:auto}
+.intro{padding:24px 20px 20px}
+.intro h1{margin:0 0 6px;font-size:22px;letter-spacing:-.01em}
+.intro p{margin:0 0 18px;color:var(--muted)}
+.primary{background:var(--accent);color:var(--on-accent);border:0;border-radius:10px;padding:11px 16px;font-weight:600;width:100%}
+.primary:hover{filter:brightness(1.1)}
+.primary:focus-visible,.send:focus-visible,.row:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.primary.small{width:auto;padding:8px 14px}
+.primary:disabled{opacity:.6;cursor:default}
+.list-title{font-size:13px;font-weight:600;color:var(--muted);margin:4px 20px 6px}
+.list{list-style:none;margin:0;padding:0 8px 16px}
+.row{display:block;width:100%;text-align:left;background:none;border:0;border-radius:10px;padding:10px 12px}
+.row:hover{background:var(--bg-soft)}
+.row-top{display:flex;gap:8px;align-items:baseline}
+.row-subject{flex:1;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row-time{color:var(--muted);font-size:12px;flex:none}
+.row-preview{display:block;color:var(--muted);font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row.unread .row-subject,.row.unread .row-preview{color:var(--text);font-weight:600}
+.row.unread .row-subject::before{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;background:#dc2626;margin-right:6px;vertical-align:1px}
+.log{flex:1;overflow:auto;padding:16px;display:flex;flex-direction:column;gap:10px}
+.empty{color:var(--muted);margin:8px 0}
+.msg{max-width:82%;display:flex;flex-direction:column;gap:2px}
+.msg .body{margin:0;padding:9px 12px;border-radius:14px;white-space:pre-wrap;overflow-wrap:anywhere}
+.msg .who{font-size:12px;color:var(--muted);margin-left:4px}
+.msg .at{font-size:11px;color:var(--muted);margin:0 4px}
+.mine{align-self:flex-end;align-items:flex-end}
+.mine .body{background:var(--accent);color:var(--on-accent);border-bottom-right-radius:4px}
+.theirs{align-self:flex-start}
+.theirs .body{background:var(--bg-soft);border-bottom-left-radius:4px}
+.email-card{align-self:stretch;background:var(--bg-soft);border:1px solid var(--border);border-radius:12px;padding:12px;margin-top:4px}
+.email-card p{margin:0 0 8px;font-size:14px}
+.email-card .saved{margin:0;color:var(--muted)}
+.email-row{display:flex;gap:8px}
+.email-row input{flex:1;min-width:0;font:inherit;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text)}
+.status{margin:0;padding:6px 16px;font-size:13px;color:var(--danger);flex:none}
+.compose{display:flex;align-items:flex-end;gap:8px;padding:10px 12px 12px;border-top:1px solid var(--border);flex:none}
+.compose textarea{flex:1;resize:none;font:inherit;line-height:1.4;padding:9px 12px;border:1px solid var(--border);border-radius:12px;background:var(--bg);color:var(--text);max-height:140px}
+.compose textarea:focus{outline:none;border-color:var(--accent)}
+.send{flex:none;width:40px;height:40px;border-radius:50%;border:0;background:var(--accent);color:var(--on-accent);display:grid;place-items:center}

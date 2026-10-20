@@ -1,0 +1,38 @@
+// A starting point for your own support Worker. Copy it to wrangler.jsonc (gitignored, so your
+// ids stay out of the repo), fill it in, and follow "Set up" in SUPPORT.md.
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "flare-support",
+  "main": "src/worker.ts",
+  "compatibility_date": "2026-10-01",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  // Your support host for each app, e.g. support.example.com, plus one canonical host for /mcp.
+  "routes": [{ "pattern": "support.example.com", "custom_domain": true }],
+  "vars": {
+    // This Worker's canonical origin. Claude connects to <PUBLIC_URL>/mcp.
+    "PUBLIC_URL": "https://support.example.com",
+    // One entry per app. origins: the pages that may show the widget. email: the support address
+    // (its domain must be on Email Service and route support@ to this Worker). notify: who hears
+    // about new messages.
+    "APPS": {
+      "myapp": {
+        "name": "My App",
+        "origins": ["https://example.com", "http://localhost:5173"],
+        "email": "support@example.com",
+        "notify": "you@example.com",
+        "accent": "#1b1f1d",
+        "greeting": "Ask us anything about My App."
+      }
+    }
+  },
+  // Secrets (wrangler secret put): SUPPORT_SECRET, ADMIN_KEY, APP_SECRETS ({"myapp": "<secret>"}).
+  "secrets": { "required": ["SUPPORT_SECRET", "ADMIN_KEY", "APP_SECRETS"] },
+  // `npx wrangler d1 create flare-support` and put its id here.
+  "d1_databases": [{ "binding": "DB", "database_name": "flare-support", "database_id": "<id>", "migrations_dir": "migrations" }],
+  // `npx wrangler kv namespace create OAUTH_KV`: tokens for the Claude connection.
+  "kv_namespaces": [{ "binding": "OAUTH_KV", "id": "<id>" }],
+  "send_email": [{ "name": "EMAIL" }],
+  "durable_objects": { "bindings": [{ "name": "CONVERSATION", "class_name": "Conversation" }] },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Conversation"] }],
+  "observability": { "enabled": true }
+}

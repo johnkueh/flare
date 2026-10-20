@@ -1,0 +1,27 @@
+{
+  "name": "@flare/support",
+  "private": true,
+  "type": "module",
+  "description": "Customer support chat for apps on Flare: the support Worker (conversations in Durable Objects, an inbox in D1, email in and out), the chat widget, and an MCP server so Claude can run the inbox. Install from GitHub (see SUPPORT.md).",
+  "exports": {
+    "./token": "./src/token.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "dev": "wrangler dev",
+    "deploy": "wrangler d1 migrations apply DB --remote && wrangler deploy"
+  },
+  "dependencies": {
+    "@cloudflare/workers-oauth-provider": "^1.2.3",
+    "postal-mime": "^4.0.11"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "0.23.0",
+    "@cloudflare/workers-types": "^5.20261019.1",
+    "@types/node": "^22",
+    "typescript": "^5.9.3",
+    "vitest": "~4.1.11",
+    "wrangler": "4.151.2"
+  }
+}
