@@ -51,6 +51,18 @@
     identityKnown: false,
   };
 
+  // The launcher reports who the visitor is (or that it can't tell) on page load and again each
+  // time the chat opens, after asking the page's token endpoint. Wait for that before starting a
+  // session, or someone who signed in without a page load would be treated as a visitor.
+  let identityArrived;
+  let identityReady;
+  const awaitIdentity = () => {
+    identityReady = new Promise((resolve) => {
+      identityArrived = resolve;
+    });
+  };
+  awaitIdentity();
+
   const parent = (data) => window.parent.postMessage({ source: "flare-support", ...data }, "*");
 
   const api = async (path, opts = {}) => {
@@ -84,6 +96,7 @@
 
   async function onIdentity(token) {
     state.identityKnown = true;
+    const before = state.session;
     const saved = store.get(KEY);
     const sub = token ? subOf(token) : null;
     try {
@@ -103,7 +116,14 @@
         state.session = null;
       }
     }
-    render();
+    identityArrived();
+    if (state.session !== before) {
+      // Someone else now (signed in or out): their conversations, not the last person's.
+      disconnect();
+      state.view = "home";
+      state.current = null;
+      render();
+    } else if (state.view === "home") render();
   }
 
   async function loadConversations() {
@@ -204,6 +224,7 @@
     }
     state.sending = true;
     try {
+      await Promise.race([identityReady, new Promise((r) => setTimeout(r, 5000))]);
       if (!state.session) await startSession(null);
       const res = await api("/v1/conversations", { method: "POST", body: JSON.stringify({ body }) });
       state.current = res.id;
@@ -379,6 +400,7 @@
     if (data.type === "identity") onIdentity(data.token);
     else if (data.type === "opened") {
       state.opened = true;
+      awaitIdentity();
       if (state.view === "thread" && state.current && state.current !== "new" && !state.socket) connect(state.current);
       renderThread();
     } else if (data.type === "closed") {

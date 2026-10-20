@@ -22,6 +22,7 @@
         "email": "support@example.com",
         "notify": "you@example.com",
         "accent": "#1b1f1d",
+        "theme": "light", // or "dark", or "auto" to follow the visitor's system setting
         "greeting": "Ask us anything about My App."
       }
     }

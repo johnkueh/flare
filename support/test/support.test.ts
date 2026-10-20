@@ -109,6 +109,8 @@ describe("widget", () => {
     const html = await chat.text();
     expect(html).toContain('"app":"acme"');
     expect(html).toContain("--accent:#2255aa");
+    // Light unless the app asks for dark or auto, whatever the visitor's system setting.
+    expect(html).toContain('<html lang="en" class="light">');
     expect((await SELF.fetch(`${BASE}/chat?app=nope`)).status).toBe(404);
   });
 
