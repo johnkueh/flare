@@ -12,3 +12,4 @@ __pycache__/
 FCM_SERVICE_ACCOUNT.json
 *.p8
 telemetry/wrangler.jsonc
+support/wrangler.jsonc

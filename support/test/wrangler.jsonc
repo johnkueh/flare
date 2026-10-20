@@ -1,0 +1,26 @@
+{
+  "name": "flare-support-test",
+  "main": "../src/worker.ts",
+  "compatibility_date": "2026-08-15",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "vars": {
+    "PUBLIC_URL": "https://support.test",
+    "SUPPORT_SECRET": "test-support-secret-test-support-secret",
+    "ADMIN_KEY": "test-admin-key",
+    "APP_SECRETS": "{\"acme\":\"acme-app-secret\"}",
+    "APPS": {
+      "acme": {
+        "name": "Acme",
+        "origins": ["https://acme.test"],
+        "email": "support@acme.test",
+        "notify": "team@acme.test",
+        "accent": "#2255aa"
+      },
+      "other": { "name": "Other", "origins": ["https://other.test"], "email": "help@other.test", "inbound": "help@in.other.test", "notify": "team@other.test" }
+    }
+  },
+  "d1_databases": [{ "binding": "DB", "database_name": "flare-support-test", "database_id": "00000000-0000-0000-0000-000000000000" }],
+  "kv_namespaces": [{ "binding": "OAUTH_KV", "id": "oauth" }, { "binding": "TEST_OUTBOX", "id": "outbox" }],
+  "durable_objects": { "bindings": [{ "name": "CONVERSATION", "class_name": "Conversation" }] },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Conversation"] }]
+}
