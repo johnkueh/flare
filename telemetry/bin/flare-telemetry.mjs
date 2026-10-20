@@ -14,6 +14,9 @@
 //   flare-telemetry crash --file <event.json> [--app <id>]
 //       lists crashes, hangs and errors, or prints the newest of one group
 //       with readable frames (bin/symbols.mjs)
+//   flare-telemetry gsc --url <telemetry Worker> --from YYYY-MM-DD [--to YYYY-MM-DD] [--site sc-domain:…]
+//       backfills Search Console a day at a time through POST /v1/gsc/pull
+//       (token in FLARE_GSC_ADMIN_TOKEN); --to defaults to three days ago
 //
 // The product's iOS and Android apps use the same app id and events.json,
 // so every platform lands in one table under one set of names.
@@ -36,7 +39,7 @@ function parseArgs(argv) {
   const out = { _: [] };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
-    if (["--app", "--key", "--file", "--build", "--days", "--env", "--service"].includes(a)) out[a.slice(2)] = argv[++i];
+    if (["--app", "--key", "--file", "--build", "--days", "--env", "--service", "--url", "--from", "--to", "--site"].includes(a)) out[a.slice(2)] = argv[++i];
     else if (a === "-h" || a === "--help") out.help = true;
     else out._.push(a);
   }
@@ -126,6 +129,38 @@ function init(args) {
 Then \`flare-telemetry check\` in CI keeps events.json valid.`);
 }
 
+const DAY = /^\d{4}-\d{2}-\d{2}$/;
+
+/** Every YYYY-MM-DD from `from` to `to`, inclusive. */
+function days(from, to) {
+  const out = [];
+  for (let t = Date.parse(`${from}T00:00:00Z`); t <= Date.parse(`${to}T00:00:00Z`); t += 86_400_000) {
+    out.push(new Date(t).toISOString().slice(0, 10));
+  }
+  return out;
+}
+
+async function gsc(args) {
+  const token = process.env.FLARE_GSC_ADMIN_TOKEN;
+  if (!args.url) fail("pass --url <your telemetry Worker>, e.g. https://flare-telemetry.<you>.workers.dev");
+  if (!token) fail("set FLARE_GSC_ADMIN_TOKEN to the Worker's GSC_ADMIN_TOKEN");
+  const to = args.to ?? new Date(Date.now() - 3 * 86_400_000).toISOString().slice(0, 10);
+  if (!DAY.test(args.from ?? "") || !DAY.test(to)) fail("pass --from YYYY-MM-DD (and optionally --to YYYY-MM-DD)");
+  const list = days(args.from, to);
+  if (list.length === 0) fail(`--from ${args.from} is after --to ${to}`);
+  const endpoint = `${args.url.replace(/\/+$/, "")}/v1/gsc/pull`;
+  for (const date of list) {
+    const res = await fetch(endpoint, {
+      method: "POST",
+      headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+      body: JSON.stringify(args.site ? { date, site: args.site } : { date }),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) fail(`${date}: ${res.status} ${body.error ?? ""}\nStopped; rerun with --from ${date}${args.site ? ` --site ${args.site}` : ""}.`);
+    console.log(`${date} ${JSON.stringify(body.written)}`);
+  }
+}
+
 const args = parseArgs(process.argv.slice(2));
 const [command] = args._;
 if (args.help || !command) {
@@ -137,6 +172,7 @@ if (args.help || !command) {
       "       flare-telemetry symbols mapping.txt --app <id> --build <versionCode>",
       "       flare-telemetry crash --app <id> [<fingerprint>] [--days 7] [--env prod]",
       "       flare-telemetry crash --file <event.json> [--app <id>]",
+      "       flare-telemetry gsc --url <telemetry Worker> --from YYYY-MM-DD [--to YYYY-MM-DD] [--site sc-domain:…]",
     ].join("\n"),
   );
   process.exit(args.help ? 0 : 1);
@@ -145,4 +181,5 @@ if (command === "init") init(args);
 else if (command === "check") check(args);
 else if (command === "symbols") upload(args);
 else if (command === "crash") await crash(args);
+else if (command === "gsc") await gsc(args);
 else fail(`unknown command ${command}`);

@@ -72,3 +72,38 @@ test("the pull endpoint needs the admin token and a date", async () => {
   assert.equal((await handleGscPull(req("Bearer secret", { date: "yesterday" }), env)).status, 400);
   assert.equal((await handleGscPull(req("Bearer x", {}), { EVENTS: {} } as never)).status, 401);
 });
+
+test("pullDay with a site pulls only that property; one failing property doesn't stop the rest", async () => {
+  const asked: string[] = [];
+  const sent: Row[][] = [];
+  const fetcher = (async (url: string) => {
+    if (url.includes("oauth2")) return Response.json({ access_token: "tok" });
+    const site = decodeURIComponent(url.split("/sites/")[1].split("/")[0]);
+    asked.push(site);
+    if (site === "sc-domain:denied.test") return new Response("User does not have sufficient permission", { status: 403 });
+    return Response.json({ rows: [apiRow("q")] });
+  }) as typeof fetch;
+  const env = {
+    EVENTS: { send: async (rows: Row[]) => void sent.push(rows) },
+    GSC_SERVICE_ACCOUNT: await serviceAccount(),
+    GSC_SITES: JSON.stringify({ "sc-domain:ls.test": "ledgersignal", "sc-domain:denied.test": "other", "sc-domain:rc.test": "reelschat" }),
+  };
+  assert.deepEqual(await pullDay(env as never, "2026-10-14", fetcher, "sc-domain:rc.test"), { "sc-domain:rc.test": 1 });
+  assert.deepEqual(asked, ["sc-domain:rc.test"]);
+  await assert.rejects(pullDay(env as never, "2026-10-14", fetcher, "sc-domain:nope.test"), /not in GSC_SITES/);
+
+  asked.length = 0;
+  sent.length = 0;
+  await assert.rejects(pullDay(env as never, "2026-10-14", fetcher), /denied\.test 2026-10-14: 403[\s\S]*"sc-domain:rc\.test":1/);
+  assert.deepEqual(asked, ["sc-domain:ls.test", "sc-domain:denied.test", "sc-domain:rc.test"]);
+  assert.deepEqual(sent.flat().map((r) => r.app_id), ["ledgersignal", "reelschat"]);
+});
+
+test("the pull endpoint rejects a site that isn't in GSC_SITES", async () => {
+  const env = { EVENTS: { send: async () => {} }, GSC_ADMIN_TOKEN: "secret", GSC_SITES: '{"sc-domain:ls.test":"ledgersignal"}' } as never;
+  const res = await handleGscPull(
+    new Request("https://t/v1/gsc/pull", { method: "POST", headers: { authorization: "Bearer secret" }, body: JSON.stringify({ date: "2026-10-14", site: "sc-domain:x.test" }) }),
+    env,
+  );
+  assert.equal(res.status, 400);
+});
