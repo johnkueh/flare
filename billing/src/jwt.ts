@@ -52,7 +52,7 @@ export function splitJws(jws: string): Jws {
   return {
     header: decode(parts[0]),
     payload: decode(parts[1]),
-    input: new TextEncoder().encode(`${parts[0]}.${parts[1]}`),
+    input: new Uint8Array(new TextEncoder().encode(`${parts[0]}.${parts[1]}`)),
     signature: fromBase64(parts[2]),
   };
 }
