@@ -28,6 +28,12 @@ export type AppConfig = {
   origins: string[];
   /** The support address customers write to and get replies from, e.g. "support@example.com". */
   email?: string;
+  /**
+   * Where mail reaches this Worker, when that isn't `email` itself: e.g. "support@reply.example.com"
+   * on a subdomain with Email Routing, because the main domain's mail stays with Google or another
+   * host (which forwards support@ here). Reply-to addresses use it.
+   */
+  inbound?: string;
   /** Who is told about new customer messages. */
   notify?: string;
   /** Widget accent colour. */
@@ -60,5 +66,5 @@ export function appSecret(env: SupportEnv, id: string): string | undefined {
 /** The app whose support address is on `domain`. */
 export function appForDomain(env: SupportEnv, domain: string): string | undefined {
   const d = domain.toLowerCase();
-  return Object.entries(apps(env)).find(([, a]) => a.email?.toLowerCase().endsWith(`@${d}`))?.[0];
+  return Object.entries(apps(env)).find(([, a]) => [a.inbound, a.email].some((x) => x?.toLowerCase().endsWith(`@${d}`)))?.[0];
 }

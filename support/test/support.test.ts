@@ -296,6 +296,20 @@ describe("email", () => {
     expect(await deliver({ from: "x@y.test", to: "help@unknown.test", subject: "?", body: "?" })).toEqual({ rejected: "Unknown address" });
   });
 
+  it("uses the inbound address when the main domain's mail lives elsewhere", async () => {
+    await deliver({ from: "ash@client.test", to: "help@in.other.test", subject: "Forwarded from Gmail", body: "hello other" });
+    const [notice] = await outbox();
+    expect(notice).toMatchObject({ to: "team@other.test", from: { email: "help@other.test", name: "Other support" } });
+    expect(notice?.replyTo).toMatch(/^help\+a\.cv_\w+\.[\w-]{16}@in\.other\.test$/);
+    const id = (await parseReplyAddress(env, notice?.replyTo ?? ""))?.conversationId as string;
+    await clearOutbox();
+    await tool("reply", { id, body: "hi ash" });
+    await settle();
+    const [toCustomer] = await outbox();
+    expect(toCustomer).toMatchObject({ to: "ash@client.test", from: { email: "help@other.test" } });
+    expect(toCustomer?.replyTo).toMatch(/@in\.other\.test$/);
+  });
+
   it("signs reply addresses per conversation and kind", async () => {
     const a = await replyAddress(env, ACME, "c", "cv_1");
     expect(a).toMatch(/^support\+c\.cv_1\.[\w-]{16}@acme\.test$/);

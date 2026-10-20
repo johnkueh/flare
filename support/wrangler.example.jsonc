@@ -12,8 +12,9 @@
     // This Worker's canonical origin. Claude connects to <PUBLIC_URL>/mcp.
     "PUBLIC_URL": "https://support.example.com",
     // One entry per app. origins: the pages that may show the widget. email: the support address
-    // (its domain must be on Email Service and route support@ to this Worker). notify: who hears
-    // about new messages.
+    // (its domain must be on Email Service and route support@ to this Worker). inbound
+    // (optional): where mail reaches this Worker when the domain's mail lives elsewhere, e.g.
+    // "support@reply.example.com". notify: who hears about new messages.
     "APPS": {
       "myapp": {
         "name": "My App",

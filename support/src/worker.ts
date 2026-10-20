@@ -80,7 +80,7 @@ async function receiveEmail(message: ForwardableEmailMessage, env: Env) {
   }
   const mail = await parseInbound(message.raw, { from: message.from, to: message.to }, message.headers);
   // Out-of-office replies and our own mail would only loop.
-  if (mail.auto || mail.from === app.email.toLowerCase()) return;
+  if (mail.auto || mail.from === app.email.toLowerCase() || mail.from === app.inbound?.toLowerCase()) return;
   if (!mail.body) return;
 
   const reply = await parseReplyAddress(env, message.to);

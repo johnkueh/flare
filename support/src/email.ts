@@ -14,8 +14,9 @@ const sig = async (env: SupportEnv, kind: ReplyKind, conversationId: string) => 
 
 /** support+<kind>.<conversation>.<sig>@domain */
 export async function replyAddress(env: SupportEnv, app: AppConfig, kind: ReplyKind, conversationId: string): Promise<string | undefined> {
-  if (!app.email) return;
-  const [local, domain] = app.email.split("@");
+  const address = app.inbound ?? app.email;
+  if (!address) return;
+  const [local, domain] = address.split("@");
   return `${local}+${kind}.${conversationId}.${await sig(env, kind, conversationId)}@${domain}`;
 }
 

@@ -49,7 +49,11 @@ address, and a contact belongs to one app.
    ```
 4. Deploy: `pnpm run deploy` (it applies the D1 migrations first).
 5. Email, per app: onboard the app's domain to Cloudflare Email Service (for sending), turn on
-   Email Routing with subaddressing, and route `support@` to this Worker.
+   Email Routing with subaddressing, and route `support@` to this Worker. If the domain's mail
+   already lives elsewhere (Google Workspace, say), don't move its MX records: turn on Email
+   Routing for a subdomain instead (`reply.myapp.com`), route `support@reply.myapp.com` here, set
+   it as the app's `inbound`, and have the mail host forward `support@myapp.com` to it. Customers
+   still see `support@myapp.com` as the sender.
 6. Claude: in claude.ai, Settings > Connectors > Add custom connector, URL `<PUBLIC_URL>/mcp`.
    Connecting opens a page that asks for the admin key.
 
