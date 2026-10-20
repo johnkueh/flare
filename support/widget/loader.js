@@ -80,23 +80,27 @@
     panel.appendChild(frame);
   };
 
+  // Asks the app who is signed in. Runs on page load and again whenever the chat opens, so
+  // signing in or out without a page load (single-page apps) is picked up.
+  const loadIdentity = async () => {
+    if (tokenUrl) {
+      try {
+        const res = await fetch(tokenUrl, { credentials: "same-origin", headers: { Accept: "application/json" } });
+        identity = res.ok ? (await res.json()).token : null;
+      } catch {
+        identity = null;
+      }
+      identityLoaded = true;
+    }
+    sendIdentity();
+  };
+
   const setOpen = (value) => {
     open = value;
     if (open) ensureFrame();
     render();
     post({ type: open ? "opened" : "closed" });
-  };
-
-  const loadIdentity = async () => {
-    if (!tokenUrl) return;
-    try {
-      const res = await fetch(tokenUrl, { credentials: "same-origin", headers: { Accept: "application/json" } });
-      identity = res.ok ? (await res.json()).token : null;
-    } catch {
-      identity = null;
-    }
-    identityLoaded = true;
-    sendIdentity();
+    if (open) loadIdentity();
   };
 
   window.addEventListener("message", (event) => {
