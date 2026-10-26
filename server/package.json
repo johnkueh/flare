@@ -2,7 +2,7 @@
   "name": "@sync/server",
   "private": true,
   "type": "module",
-  "description": "The sync server: the space Durable Object, SyncGateway, invite codes, files in R2 and the /spaces handlers. Cloudflare only and no npm dependencies; Workers install it from GitHub (see the README).",
+  "description": "The sync server: the space Durable Object, SyncGateway, triggers, invite codes, files in R2 and the /spaces handlers. Cloudflare only and no npm dependencies; Workers install it from GitHub (see the README).",
   "exports": {
     "./space": "./src/space.ts",
     "./spaces": "./src/spaces.ts",
@@ -12,6 +12,7 @@
     "./codes": "./src/codes.ts",
     "./files": "./src/files.ts",
     "./sweep": "./src/sweep.ts",
+    "./triggers": "./src/triggers.ts",
     "./schema-check": "./src/schema-check.ts"
   }
 }

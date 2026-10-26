@@ -157,6 +157,100 @@ a collection as plain documents, and writes with the server's clock
 Service bindings never leave the account, so the gateway needs no auth of
 its own.
 
+## Reacting to changes on the server
+
+Triggers run your Worker's code after documents change, whoever changed
+them: a phone's push, a web page through SyncGateway, or the server itself.
+Use them for work a phone can't or shouldn't do: start a job, fill in
+derived fields, send a push notification.
+
+Each space reports what it committed to a queue you bind, and keeps trying
+until the queue takes it. Your queue handler passes the batch to
+`syncTriggers`, which reads each changed document as it is now and calls
+that collection's trigger (`server/src/triggers.ts`).
+
+```jsonc
+// wrangler.jsonc
+"queues": {
+  "producers": [{ "binding": "SYNC_TRIGGERS", "queue": "my-app-sync-triggers" }],
+  "consumers": [{ "queue": "my-app-sync-triggers", "max_batch_timeout": 1, "dead_letter_queue": "my-app-sync-triggers-failed" }]
+}
+```
+
+```ts
+import { syncTriggers, type SyncTriggers } from "@sync/server/triggers";
+
+// A song a phone queued gets analysed, and the result syncs back.
+const triggers: SyncTriggers<Env> = {
+  songs: {
+    fields: ["link", "status"], // the job's own fields (step, sheet) don't call it
+    async changed({ env, space, id, doc }) {
+      if (doc?.status !== "queued") return;
+      // At least once: the same change can arrive twice, so the job's id
+      // is the change's, and a second delivery finds it already started.
+      const job = `${space.id}-${id}-${doc._t}`;
+      if (!(await env.ANALYSE.get(job).catch(() => null))) {
+        await env.ANALYSE.create({ id: job, params: { spaceId: space.id, songId: id, link: doc.link } });
+      }
+      await space.write([{ c: "songs", d: id, f: "status", v: "analysing" }]);
+    },
+  },
+};
+
+export default {
+  fetch,
+  queue: (batch, env) => syncTriggers(env, triggers).queue(batch),
+};
+```
+
+The job writes its result back with `serverWrite`, and every member's
+phone pulls it like any other change:
+
+```ts
+import { serverWrite } from "@sync/server/spaces";
+
+await serverWrite(env, spaceId, [
+  { c: "songs", d: songId, f: "sheet", v: sheet },
+  { c: "songs", d: songId, f: "status", v: "ready" },
+]);
+```
+
+What to rely on:
+
+- **Every change, at least once.** Reports survive a failed send, so there's
+  no sweep to write. A trigger can still see a change twice (a retried
+  batch), so make it safe to repeat: act on a state (`queued`), and key any
+  job by the document and its `_t`.
+- **The document as it is now.** A trigger gets the merged document, not
+  each edit along the way; quick edits may arrive as one call. `doc` is
+  null once the document has been deleted. It runs about a second after
+  the change (the batch timeout).
+- **The server's writes count too.** That's how "ready" can go on to send a
+  push. `fields` and the state check keep a trigger from re-running on its
+  own writes.
+- **Failures retry.** A trigger that throws retries its batch (then goes to
+  the dead-letter queue); the space's other changes aren't held up.
+- **`serverWrite` lands last.** Each document's writes are stamped after the
+  newest timestamp already in it, so a phone whose clock runs ahead can't
+  quietly win over the server's result.
+
+Security:
+
+- `serverWrite` writes as the server and skips the membership check. Take
+  the space id from a trigger or your own records, never from a request.
+- Fields the server writes are yours by convention only: a member can set
+  `status: "ready"` in their own space. Keep anything that costs money or
+  grants access (credits, entitlements) in D1, not in the space.
+- Triggers spend money on what users typed. Cap work per space before
+  starting a job, and check a URL's host before fetching it.
+- Queue messages carry only the space id and a version range, never
+  document data.
+
+Leave `SYNC_TRIGGERS` unbound and spaces report nothing. A space starts
+reporting from its first change after the binding appears, never its
+history. The example Worker (`example/`) files grocery items under an aisle
+this way.
+
 ## Commands
 
 ```sh

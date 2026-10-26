@@ -1,5 +1,6 @@
 import { DurableObject } from "cloudflare:workers";
 import { releaseSpaceCodes } from "./codes";
+import { foldDocs, stampWrites, type Doc, type Write } from "./docs";
 import { deleteFiles, fileKey } from "./files";
 
 // One Durable Object per space: the server half of PROTOCOL.md.
@@ -59,6 +60,14 @@ export type InvitePreview = {
 };
 
 export type PushResult = { version: number; time: number; corrections: Op[] };
+
+/** What the space sends to the SYNC_TRIGGERS queue: the versions it
+ *  committed since it last reported, `from` (exclusive) to `to`. */
+export type TriggerMessage = { spaceId: string; from: number; to: number };
+
+/** A document that changed in a reported range, as it is now: merged, or
+ *  null when it has been deleted. */
+export type ChangedDoc = { c: string; id: string; doc: Doc | null };
 export type ChangesResult = { ops: Op[]; version: number; more: boolean; reset: boolean; time: number };
 
 export type SpaceError = "NOT_FOUND" | "NOT_MEMBER" | "NOT_OWNER" | "FULL" | "INVALID_OPS";
@@ -95,6 +104,10 @@ export const ZERO_TIMESTAMP = "000000000000000-0000-0000000000000000";
 const TIMESTAMP = /^\d{15}-[0-9a-f]{4}-[0-9a-f]{16}$/;
 const NAME = /^[A-Za-z0-9_.:-]+$/;
 const DELETE_FIELD = "_del";
+const NODE = /^[0-9a-f]{16}$/;
+/** How long a failed report to SYNC_TRIGGERS waits before trying again:
+ *  doubling from a second, at most an hour. */
+const REPORT_RETRY_MAX_MS = 60 * 60 * 1000;
 
 // -- op validation ------------------------------------------------------------------
 
@@ -174,6 +187,17 @@ CREATE TABLE IF NOT EXISTS entries (
 CREATE INDEX IF NOT EXISTS entries_version ON entries (version);
 ${MEMBER_DEVICES}`;
 
+// Added with triggers: how far the space has reported its changes to
+// SYNC_TRIGGERS. Created by the first push once the queue is bound, at the
+// version before that push, so a space never reports its history.
+const REPORTED = `
+CREATE TABLE IF NOT EXISTS reported (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  version INTEGER NOT NULL,
+  failures INTEGER NOT NULL
+);
+`;
+
 // Spaces made before files moved to R2 kept them in a `blobs` table
 // (hash, type, bytes, created_at). moveFilesToR2() empties and drops it.
 
@@ -194,6 +218,9 @@ type EntryRow = { c: string; d: string; f: string; s: string; v: string; t: stri
 export interface SpaceEnv {
   DB: D1Database;
   SPACE_FILES?: R2Bucket;
+  /** Where the space reports what it committed, for `syncTriggers` (see
+   *  triggers.ts). Leave it unbound and nothing is reported. */
+  SYNC_TRIGGERS?: Queue<TriggerMessage>;
 }
 
 /** The RPC methods as a caller sees them through a stub. Workers' own stub
@@ -211,6 +238,8 @@ export type SpaceRpc = {
     | "preview"
     | "push"
     | "changes"
+    | "changedDocs"
+    | "serverWrite"
     | "moveFilesToR2"]: (
     ...args: Parameters<SpaceObject[K]>
   ) => Promise<ReturnType<SpaceObject[K]>>;
@@ -223,6 +252,7 @@ export const DEVICE_HEADER = "X-Space-Device";
 export class SpaceObject extends DurableObject<SpaceEnv> {
   private sql: SqlStorage;
   private moving: Promise<{ moved: number }> | null = null;
+  private alarming: Promise<void> = Promise.resolve();
 
   constructor(ctx: DurableObjectState, env: SpaceEnv) {
     super(ctx, env);
@@ -279,7 +309,8 @@ export class SpaceObject extends DurableObject<SpaceEnv> {
       return false;
     });
     if (full) return { ok: false, error: "FULL" };
-    if (meta.empty_since !== null) this.ctx.storage.deleteAlarm();
+    // The alarm also reports changes; it reschedules itself either way.
+    if (meta.empty_since !== null && !this.reportPending()) this.ctx.storage.deleteAlarm();
     this.seeDevice(device.id, joinedFrom(device), now);
     return { ok: true, info: this.infoFor(device.id, now) };
   }
@@ -445,19 +476,90 @@ export class SpaceObject extends DurableObject<SpaceEnv> {
       if (typeof op === "string") return { ok: false, error: "INVALID_OPS", index, reason: op };
       ops.push(op);
     }
+    const { version, corrections } = this.apply(ops, String(now + MAX_CLOCK_SKEW_MS).padStart(15, "0"));
+    return { ok: true, version, time: now, corrections };
+  }
 
-    const latest = String(now + MAX_CLOCK_SKEW_MS).padStart(15, "0");
+  /** Writes as the server rather than a member, for the app's own Worker
+   *  (a trigger, or a job it started). No membership check: only code
+   *  holding the SPACES binding can call it, so never pass it a space id
+   *  taken from a request. Each document's writes land after the newest
+   *  timestamp already in it, so a phone whose clock runs ahead can't
+   *  outrank the server's write. */
+  serverWrite(writes: Write[], node: string): Result<{ version: number }> {
+    if (!this.meta()) return { ok: false, error: "NOT_FOUND" };
+    if (!NODE.test(node)) return { ok: false, error: "INVALID_OPS", reason: "bad node" };
+    if (!Array.isArray(writes) || writes.length > MAX_OPS_PER_PUSH) {
+      return { ok: false, error: "INVALID_OPS", reason: "writes" };
+    }
+    // One stamp per document, after the newest entry it has.
+    const byDoc = new Map<string, Write[]>();
+    for (const w of writes) {
+      if (typeof w !== "object" || w === null) return { ok: false, error: "INVALID_OPS", reason: "not an object" };
+      const key = JSON.stringify([w.c, w.d]);
+      byDoc.set(key, [...(byDoc.get(key) ?? []), w]);
+    }
+    const now = Date.now();
+    const ops: Op[] = [];
+    for (const group of byDoc.values()) {
+      const newest = this.newestIn(group[0].c, group[0].d);
+      ops.push(...stampWrites(group.map((w) => ({ ...w, after: newest ?? undefined })), node, now));
+    }
+    for (const [index, raw] of ops.entries()) {
+      const op = validateOp(raw);
+      if (typeof op === "string") return { ok: false, error: "INVALID_OPS", index, reason: op };
+      ops[index] = op;
+    }
+    // The server's own stamps aren't held to the skew limit: they sit at
+    // most just past a phone's, which was.
+    return { ok: true, version: this.apply(ops, null).version };
+  }
+
+  /** The documents in the given collections that changed in versions
+   *  (from, to], as they are now. With fields for a collection, only
+   *  changes to those fields (or a delete) count. For the trigger
+   *  consumer; a document changed again since `to` comes in that later
+   *  range instead. */
+  changedDocs(from: number, to: number, collections: Record<string, string[] | null>): Result<{ docs: ChangedDoc[] }> {
+    if (!this.meta()) return { ok: false, error: "NOT_FOUND" };
+    const docs: ChangedDoc[] = [];
+    for (const [c, fields] of Object.entries(collections)) {
+      const ids = this.sql
+        .exec<{ d: string; f: string }>(
+          "SELECT DISTINCT d, f FROM entries WHERE c = ? AND version > ? AND version <= ?",
+          c,
+          from,
+          to,
+        )
+        .toArray()
+        .filter((row) => !fields || row.f === DELETE_FIELD || fields.includes(row.f))
+        .map((row) => row.d);
+      for (const id of [...new Set(ids)].sort()) {
+        const ops = this.sql
+          .exec<EntryRow>("SELECT c, d, f, s, v, t, k, version FROM entries WHERE c = ? AND d = ?", c, id)
+          .toArray()
+          .map(toOp);
+        docs.push({ c, id, doc: foldDocs(ops, c)[0] ?? null });
+      }
+    }
+    return { ok: true, docs };
+  }
+
+  /** Applies validated ops: at each path the strictly larger timestamp
+   *  wins. Ops stamped past `latest` (or making a parent loop) come back
+   *  as corrections. */
+  private apply(ops: Op[], latest: string | null): { version: number; corrections: Op[] } {
+    const triggers = Boolean(this.env.SYNC_TRIGGERS);
     const { version, changed, corrections } = this.ctx.storage.transactionSync(() => {
       let version = this.meta()!.version;
       const start = version;
       const corrections: Op[] = [];
       for (const op of ops) {
         const current = this.entry(op.c, op.d, op.f, op.s);
-        if (op.t.slice(0, 15) > latest || (op.k === "parent" && this.makesLoop(op))) {
+        if ((latest !== null && op.t.slice(0, 15) > latest) || (op.k === "parent" && this.makesLoop(op))) {
           corrections.push(current ? toOp(current) : zeroOp(op));
           continue;
         }
-        // At each path the strictly larger timestamp wins.
         if (current && !(op.t > current.t)) continue;
         version += 1;
         this.sql.exec(
@@ -474,12 +576,21 @@ export class SpaceObject extends DurableObject<SpaceEnv> {
           version,
         );
       }
-      if (version !== start) this.sql.exec("UPDATE meta SET version = ?", version);
+      if (version !== start) {
+        this.sql.exec("UPDATE meta SET version = ?", version);
+        if (triggers) {
+          this.sql.exec(REPORTED);
+          this.sql.exec("INSERT OR IGNORE INTO reported (id, version, failures) VALUES (1, ?, 0)", start);
+        }
+      }
       return { version, changed: version !== start, corrections };
     });
 
-    if (changed) this.broadcast(version);
-    return { ok: true, version, time: now, corrections };
+    if (changed) {
+      this.broadcast(version);
+      if (triggers) void this.alarmBy(Date.now());
+    }
+    return { version, corrections };
   }
 
   changes(deviceId: string, since: number, limit: number): Result<ChangesResult> {
@@ -540,19 +651,43 @@ export class SpaceObject extends DurableObject<SpaceEnv> {
     }
   }
 
-  /** Deletes an emptied space's data once it has been empty long enough. */
+  /** Reports changes to SYNC_TRIGGERS, and deletes an emptied space's
+   *  data once it has been empty long enough. */
   override async alarm() {
     const meta = this.meta();
-    if (!meta || meta.empty_since === null || this.activeCount() > 0) return;
-    const due = meta.empty_since + EMPTY_SPACE_TTL_MS;
-    if (Date.now() < due) {
-      await this.ctx.storage.setAlarm(due);
-      return;
+    if (!meta) return;
+    const now = Date.now();
+    let next = await this.report(meta, now);
+    if (meta.empty_since !== null && this.activeCount() === 0) {
+      const due = meta.empty_since + EMPTY_SPACE_TTL_MS;
+      if (now >= due) {
+        await releaseSpaceCodes(this.env.DB, meta.space_id);
+        if (this.env.SPACE_FILES) await deleteFiles({ SPACE_FILES: this.env.SPACE_FILES }, meta.space_id);
+        await this.ctx.storage.deleteAlarm();
+        await this.ctx.storage.deleteAll();
+        return;
+      }
+      next = next === null ? due : Math.min(next, due);
     }
-    await releaseSpaceCodes(this.env.DB, meta.space_id);
-    if (this.env.SPACE_FILES) await deleteFiles({ SPACE_FILES: this.env.SPACE_FILES }, meta.space_id);
-    await this.ctx.storage.deleteAlarm();
-    await this.ctx.storage.deleteAll();
+    if (next !== null) await this.ctx.storage.setAlarm(next);
+  }
+
+  /** Sends what was committed since the last report. Returns when to run
+   *  again (a failed send, or pushes that landed while sending), or null. */
+  private async report(meta: Meta, now: number): Promise<number | null> {
+    const queue = this.env.SYNC_TRIGGERS;
+    const row = this.reported();
+    if (!queue || !row || row.version >= meta.version) return null;
+    const to = meta.version;
+    try {
+      await queue.send({ spaceId: meta.space_id, from: row.version, to } satisfies TriggerMessage);
+    } catch (error) {
+      this.sql.exec("UPDATE reported SET failures = failures + 1");
+      console.error(JSON.stringify({ event: "space_report_error", space: meta.space_id.slice(0, 8), detail: String(error).slice(0, 300) }));
+      return now + Math.min(REPORT_RETRY_MAX_MS, 1000 * 2 ** row.failures);
+    }
+    this.sql.exec("UPDATE reported SET version = ?, failures = 0", to);
+    return this.meta()!.version > to ? now : null;
   }
 
   // -- helpers ----------------------------------------------------------------------
@@ -657,7 +792,7 @@ export class SpaceObject extends DurableObject<SpaceEnv> {
         // Already closed.
       }
     }
-    if (emptied) void this.ctx.storage.setAlarm(now + EMPTY_SPACE_TTL_MS);
+    if (emptied) void this.alarmBy(now + EMPTY_SPACE_TTL_MS);
   }
 
   private infoFor(deviceId: string, now: number): SpaceInfo {
@@ -721,6 +856,33 @@ export class SpaceObject extends DurableObject<SpaceEnv> {
       next = parent ? JSON.parse(parent.v) : null;
     }
     return false;
+  }
+
+  /** The newest timestamp in a document, or null for one with no entries. */
+  private newestIn(c: string, d: string): string | null {
+    return this.sql.exec<{ t: string | null }>("SELECT MAX(t) AS t FROM entries WHERE c = ? AND d = ?", c, d).one().t;
+  }
+
+  private reported(): { version: number; failures: number } | null {
+    const table = this.sql.exec("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'reported'").toArray();
+    if (!table.length) return null;
+    return this.sql.exec<{ version: number; failures: number }>("SELECT version, failures FROM reported WHERE id = 1").toArray()[0] ?? null;
+  }
+
+  /** Whether committed changes are waiting to be reported. */
+  private reportPending(): boolean {
+    const row = this.reported();
+    return Boolean(this.env.SYNC_TRIGGERS && row && row.version < this.meta()!.version);
+  }
+
+  /** Sets the alarm for `at`, unless it's already due sooner. One at a
+   *  time, so two calls can't both read "no alarm" and the later one win. */
+  private alarmBy(at: number): Promise<void> {
+    this.alarming = this.alarming.then(async () => {
+      const current = await this.ctx.storage.getAlarm();
+      if (current === null || at < current) await this.ctx.storage.setAlarm(at);
+    });
+    return this.alarming;
   }
 
   private broadcast(version: number) {
