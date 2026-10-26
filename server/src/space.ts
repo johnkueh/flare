@@ -190,6 +190,16 @@ ${MEMBER_DEVICES}`;
 // Added with triggers: how far the space has reported its changes to
 // SYNC_TRIGGERS. Created by the first push once the queue is bound, at the
 // version before that push, so a space never reports its history.
+// Added with trigger budgets: calls each trigger has had in its current
+// window. Created on first use.
+const BUDGETS = `
+CREATE TABLE IF NOT EXISTS trigger_budgets (
+  name TEXT PRIMARY KEY,
+  window_start INTEGER NOT NULL,
+  used INTEGER NOT NULL
+) WITHOUT ROWID;
+`;
+
 const REPORTED = `
 CREATE TABLE IF NOT EXISTS reported (
   id INTEGER PRIMARY KEY CHECK (id = 1),
@@ -239,6 +249,7 @@ export type SpaceRpc = {
     | "push"
     | "changes"
     | "changedDocs"
+    | "take"
     | "serverWrite"
     | "moveFilesToR2"]: (
     ...args: Parameters<SpaceObject[K]>
@@ -543,6 +554,31 @@ export class SpaceObject extends DurableObject<SpaceEnv> {
       }
     }
     return { ok: true, docs };
+  }
+
+  /** Takes up to `n` calls from the trigger `name`'s budget of `count`
+   *  per fixed window of `windowMs`, and returns how many it got. Exact:
+   *  the space handles one request at a time. */
+  take(name: string, count: number, windowMs: number, n: number): Result<{ granted: number }> {
+    if (!this.meta()) return { ok: false, error: "NOT_FOUND" };
+    const start = Math.floor(Date.now() / windowMs) * windowMs;
+    const granted = this.ctx.storage.transactionSync(() => {
+      this.sql.exec(BUDGETS);
+      const row = this.sql
+        .exec<{ window_start: number; used: number }>("SELECT window_start, used FROM trigger_budgets WHERE name = ?", name)
+        .toArray()[0];
+      const used = row && row.window_start === start ? row.used : 0;
+      const granted = Math.max(0, Math.min(n, count - used));
+      this.sql.exec(
+        `INSERT INTO trigger_budgets (name, window_start, used) VALUES (?, ?, ?)
+         ON CONFLICT (name) DO UPDATE SET window_start = excluded.window_start, used = excluded.used`,
+        name,
+        start,
+        used + granted,
+      );
+      return granted;
+    });
+    return { ok: true, granted };
   }
 
   /** Applies validated ops: at each path the strictly larger timestamp

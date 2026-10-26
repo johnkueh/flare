@@ -184,6 +184,7 @@ import { syncTriggers, type SyncTriggers } from "@sync/server/triggers";
 const triggers: SyncTriggers<Env> = {
   songs: {
     fields: ["link", "status"], // the job's own fields (step, sheet) don't call it
+    limit: { count: 20, per: "day" }, // per space; the default is 50 a day
     async changed({ env, space, id, doc }) {
       if (doc?.status !== "queued") return;
       // At least once: the same change can arrive twice, so the job's id
@@ -193,6 +194,10 @@ const triggers: SyncTriggers<Env> = {
         await env.ANALYSE.create({ id: job, params: { spaceId: space.id, songId: id, link: doc.link } });
       }
       await space.write([{ c: "songs", d: id, f: "status", v: "analysing" }]);
+    },
+    // Over the day's budget: tell the phone instead of starting a job.
+    async limited({ space, id, doc }) {
+      if (doc?.status === "queued") await space.write([{ c: "songs", d: id, f: "status", v: "limited" }]);
     },
   },
 };
@@ -230,6 +235,15 @@ What to rely on:
   own writes.
 - **Failures retry.** A trigger that throws retries its batch (then goes to
   the dead-letter queue); the space's other changes aren't held up.
+- **Every trigger has a budget.** Each space allows a trigger 50 calls a
+  day (one per changed document) unless it sets `limit: { count, per }`
+  (`per` is `"minute"`, `"hour"` or `"day"`), or `limit: false` for none.
+  The default is strict on purpose, since a trigger can start paid work:
+  raise it for cheap ones. Documents over budget go to `limited` (or are
+  logged as `sync_trigger_limited` and skipped) and are never retried, so
+  a flood of changes can't turn into a backlog. Calls a trigger returns
+  early from still count; narrow `fields` to keep them down. The budget
+  also stops a trigger that keeps re-triggering itself.
 - **`serverWrite` lands last.** Each document's writes are stamped after the
   newest timestamp already in it, so a phone whose clock runs ahead can't
   quietly win over the server's result.
@@ -241,8 +255,20 @@ Security:
 - Fields the server writes are yours by convention only: a member can set
   `status: "ready"` in their own space. Keep anything that costs money or
   grants access (credits, entitlements) in D1, not in the space.
-- Triggers spend money on what users typed. Cap work per space before
-  starting a job, and check a URL's host before fetching it.
+- Triggers spend money on what users typed. Size `limit` for the work, and
+  check a URL's host before fetching it.
+
+With a model in the loop:
+
+- A trigger starts work and never calls the model itself. Put paid calls
+  in a Workflow step (`step.do`), so a retry reuses the stored result
+  instead of paying again.
+- Send model calls through Cloudflare AI Gateway with a spend limit split
+  by a metadata key (the space id, or the owner's user id) and one daily
+  budget for the whole app. It's the hard dollar cap if everything else
+  fails.
+- Keep a live flag (FLAGS.md) the trigger checks, so one change stops new
+  jobs without a deploy.
 - Queue messages carry only the space id and a version range, never
   document data.
 

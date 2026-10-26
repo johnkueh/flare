@@ -210,3 +210,76 @@ describe("syncTriggers", () => {
     expect(outcome).toEqual(["ack", "retry", "ack"]);
   });
 });
+
+describe("budgets", () => {
+  /** A list with `n` items pushed at once, and the range they landed in. */
+  async function flood(n: number) {
+    const { list } = await newList();
+    const ops = Array.from({ length: n }, (_, i) => setOp(`item${i}`, "name", `Item ${i}`));
+    const pushed = await stub(list.spaceId).push(list.you, ops);
+    if (!pushed.ok) throw new Error("push failed");
+    return { list, range: { spaceId: list.spaceId, from: pushed.version - n, to: pushed.version } };
+  }
+
+  it("calls a trigger 50 times a day by default and hands the rest to limited", async () => {
+    const { range } = await flood(60);
+    let changed = 0;
+    const limited: string[] = [];
+    await syncTriggers(env, {
+      groceries: { changed: () => void changed++, limited: ({ id }) => void limited.push(id) },
+    }).run(range);
+    expect(changed).toBe(50);
+    expect(limited).toHaveLength(10);
+    // The day's budget is spent: the same range again gets nothing.
+    await syncTriggers(env, { groceries: { changed: () => void changed++ } }).run(range);
+    expect(changed).toBe(50);
+  });
+
+  it("takes a trigger's own budget, or none", async () => {
+    const { range } = await flood(30);
+    let changed = 0;
+    await syncTriggers(env, { groceries: { limit: { count: 5, per: "hour" }, changed: () => void changed++ } }).run(range);
+    expect(changed).toBe(5);
+    const other = await flood(60);
+    changed = 0;
+    await syncTriggers(env, { groceries: { limit: false, changed: () => void changed++ } }).run(other.range);
+    expect(changed).toBe(60);
+  });
+
+  it("starts a new window", async () => {
+    const { list } = await newList();
+    const space = stub(list.spaceId);
+    expect(await space.take("songs", 2, 100, 5)).toMatchObject({ granted: 2 });
+    expect(await space.take("songs", 2, 100, 1)).toMatchObject({ granted: 0 });
+    // Budgets are per trigger.
+    expect(await space.take("other", 2, 100, 1)).toMatchObject({ granted: 1 });
+    await new Promise((r) => setTimeout(r, 120));
+    expect(await space.take("songs", 2, 100, 5)).toMatchObject({ granted: 2 });
+  });
+
+  it("stops a trigger that keeps re-triggering itself", async () => {
+    const { list } = await newList();
+    const space = stub(list.spaceId);
+    const first = await space.push(list.you, [setOp("x", "name", "Loop")]);
+    if (!first.ok) throw new Error("push failed");
+    let calls = 0;
+    // A bug: it writes the field it watches, so every write calls it again.
+    const looping = syncTriggers(env, {
+      groceries: {
+        limit: { count: 5, per: "hour" },
+        async changed({ space, id }) {
+          calls++;
+          await space.write([{ c: "groceries", d: id, f: "name", v: `Loop ${calls}` }]);
+        },
+      },
+    });
+    let from = first.version - 1;
+    for (let i = 0; i < 20; i++) {
+      const to = (await space.changes(list.you, 0, 0)) as { version: number };
+      if (to.version === from) break;
+      await looping.run({ spaceId: list.spaceId, from, to: to.version });
+      from = to.version;
+    }
+    expect(calls).toBe(5);
+  });
+});
