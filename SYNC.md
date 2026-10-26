@@ -246,6 +246,11 @@ Security:
 - Queue messages carry only the space id and a version range, never
   document data.
 
+Bind the queue in the Worker that exports `SpaceObject`: the space reads
+`SYNC_TRIGGERS` from its own environment. A Worker that already consumes
+another queue (push notifications, say) gets every batch in one `queue()`
+handler, so branch on `batch.queue`, as `example/src/index.ts` does.
+
 Leave `SYNC_TRIGGERS` unbound and spaces report nothing. A space starts
 reporting from its first change after the binding appears, never its
 history. The example Worker (`example/`) files grocery items under an aisle
