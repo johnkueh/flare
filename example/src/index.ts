@@ -10,6 +10,9 @@
 //   /ofrep/v1/evaluate/flags    feature flags from flags.json (@flare/flags)
 //   /v1/push/device             this phone's push token (@flare/push)
 //   /dev/outbox                 the last email code sent (DEV_OUTBOX only)
+//
+// A trigger (@sync/server/triggers) files each item under an aisle once its
+// name is set, from a phone or the web page alike.
 
 import { authenticate, type FlareAuthEnv, flareAuth, whoIs } from "@flare/auth";
 import { type FlagshipBinding, flagsHttp } from "@flare/flags/server";
@@ -33,6 +36,7 @@ import {
   type SpacesEnv,
 } from "@sync/server/spaces";
 import type { Platform, Result } from "@sync/server/space";
+import { syncTriggers, type SyncTriggers, type TriggerMessage } from "@sync/server/triggers";
 import flags from "../flags.json";
 import notifications from "../notifications.json";
 
@@ -101,11 +105,42 @@ export default {
     return route(request, env, url, who, (spaceId, names) => ctx.waitUntil(notifyAdded(env, push, spaceId, who, request, names)));
   },
 
-  // Push notifications queued by notify(), sent to APNs and FCM.
+  // Two queues: changes the spaces report (triggers), and push
+  // notifications queued by notify(), sent to APNs and FCM.
   async queue(batch, env) {
-    await flarePush(env, { notifications }).queue(batch as MessageBatch<PushMessage>);
+    if (batch.queue === "flare-example-sync-triggers") {
+      await syncTriggers(env, triggers).queue(batch as MessageBatch<TriggerMessage>);
+    } else {
+      await flarePush(env, { notifications }).queue(batch as MessageBatch<PushMessage>);
+    }
   },
 } satisfies ExportedHandler<Env>;
+
+/** What the server does when items change. */
+export const triggers: SyncTriggers<Env> = {
+  groceries: {
+    // Not "aisle": the trigger's own write doesn't call it again.
+    fields: ["name"],
+    async changed({ space, id, doc }) {
+      if (typeof doc?.name !== "string") return;
+      const aisle = aisleOf(doc.name);
+      if (doc.aisle !== aisle) await space.write([{ c: "groceries", d: id, f: "aisle", v: aisle }]);
+    },
+  },
+};
+
+const AISLES: Record<string, string[]> = {
+  Produce: ["apple", "banana", "lettuce", "onion", "potato", "tomato", "carrot", "lemon"],
+  Dairy: ["milk", "cheese", "yoghurt", "yogurt", "butter", "cream", "eggs"],
+  Bakery: ["bread", "rolls", "bagel", "croissant"],
+};
+
+/** A rough aisle from an item's name. */
+export function aisleOf(name: string): string {
+  const lower = name.toLowerCase();
+  for (const [aisle, words] of Object.entries(AISLES)) if (words.some((w) => lower.includes(w))) return aisle;
+  return "Other";
+}
 
 /** Tells the list's other members what was just added. */
 async function notifyAdded(env: Env, push: FlarePush<typeof notifications>, spaceId: string, who: Who, request: Request, names: string[]) {

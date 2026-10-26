@@ -6,6 +6,7 @@
 // whatever error shape its API uses.
 
 import { lookupCode, parseInviteCode, releaseCode, reserveCode } from "./codes";
+import type { Write } from "./docs";
 import { schemaMismatches, type SyncSchema } from "./schema-check";
 import type { NewDevice, Result, SeenDevice, SpaceEnv, SpaceObject, SpaceRpc } from "./space";
 
@@ -113,6 +114,27 @@ export async function pushOps(env: SpacesEnv, spaceId: string, deviceId: string,
     console.log(JSON.stringify({ event: "space_push_invalid", key: deviceId.slice(0, 8), reason: result.reason }));
   }
   return result;
+}
+
+/** Writes into a space as the server, not a member: for the app's own
+ *  triggers and the jobs they start. It skips the membership check, so the
+ *  space id must come from a trigger or the app's own records, never from
+ *  a request. Each document's writes land after the newest timestamp in
+ *  it, so they win over what a phone wrote even when its clock is ahead. */
+export async function serverWrite(env: Pick<SpacesEnv, "SPACES">, spaceId: string, writes: Write[]) {
+  const space = spaceStub(env, spaceId);
+  if (!space) return notFound;
+  return space.serverWrite(writes, await serverNode());
+}
+
+/** The timestamp node of the server's writes: 16 hex characters of a
+ *  fixed SHA-256, worked out on first use (not at startup). */
+let node: Promise<string> | null = null;
+function serverNode(): Promise<string> {
+  node ??= crypto.subtle
+    .digest("SHA-256", new TextEncoder().encode("flare:server"))
+    .then((hash) => [...new Uint8Array(hash).subarray(0, 8)].map((b) => b.toString(16).padStart(2, "0")).join(""));
+  return node;
 }
 
 export async function changes(env: SpacesEnv, spaceId: string, deviceId: string, since: number, limit: number) {

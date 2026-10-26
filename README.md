@@ -36,6 +36,12 @@ CRDT like Yjs ([why](SYNC.md#why-not-yjs)).
 Web pages read and write through your Worker.
 <br clear="right">
 
+**Server code that reacts.** Say what should happen when a collection
+changes (start a job, file an item, send a push) and your Worker runs it
+after every change, from a phone, a web page or the server itself. Nothing
+is missed, and results sync back to every phone
+([triggers](SYNC.md#reacting-to-changes-on-the-server)).
+
 **Feature flags.** List them in one `flags.json`; Cloudflare Flagship
 serves them. Typed on every platform with no codegen step, and they work
 offline.

@@ -28,9 +28,17 @@
   // APNS_KEY_P8, APNS_KEY_ID, APNS_TEAM_ID and FCM_SERVICE_ACCOUNT are secrets and
   // APNS_TOPICS a var (`flare-push setup` adds the var and lists the secrets); without them sends are
   // logged as failed and dropped.
+  // Triggers (@sync/server/triggers): each space reports its changes to
+  // SYNC_TRIGGERS, and the queue() handler runs the triggers.
   "queues": {
-    "producers": [{ "binding": "PUSH_QUEUE", "queue": "flare-example-push" }],
-    "consumers": [{ "queue": "flare-example-push", "max_batch_size": 100, "max_retries": 5 }]
+    "producers": [
+      { "binding": "PUSH_QUEUE", "queue": "flare-example-push" },
+      { "binding": "SYNC_TRIGGERS", "queue": "flare-example-sync-triggers" }
+    ],
+    "consumers": [
+      { "queue": "flare-example-push", "max_batch_size": 100, "max_retries": 5 },
+      { "queue": "flare-example-sync-triggers", "max_batch_timeout": 1 }
+    ]
   },
   "d1_databases": [{ "binding": "DB", "database_name": "flare-example", "database_id": "00000000-0000-0000-0000-000000000000" }]
 }
