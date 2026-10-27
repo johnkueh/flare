@@ -121,6 +121,9 @@ export const triggers: SyncTriggers<Env> = {
   groceries: {
     // Not "aisle": the trigger's own write doesn't call it again.
     fields: ["name"],
+    // Filing is free, and a busy household names more than the default 50
+    // items a day.
+    limit: { count: 1000, per: "day" },
     async changed({ space, id, doc }) {
       if (typeof doc?.name !== "string") return;
       const aisle = aisleOf(doc.name);

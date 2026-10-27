@@ -19,7 +19,12 @@
 // Delivery is at least once, and a document that changes several times in
 // quick succession may be seen once, as it ended up. Triggers act on a
 // document's state ("queued") rather than on the change, and must be safe to
-// run twice. See SYNC.md, "Reacting to changes on the server".
+// run twice.
+//
+// Each trigger has a budget per space, 50 calls a day unless it sets its
+// own, so a flood of changes (or a trigger re-triggering itself) can't run
+// up a bill. Documents over budget go to its `limited` handler instead.
+// See SYNC.md, "Reacting to changes on the server".
 
 import type { Doc, Write } from "./docs";
 import type { Result, TriggerMessage } from "./space";
@@ -32,8 +37,22 @@ export type Trigger<E> = {
   /** Only changes to these fields call it (a delete always does). Leave
    *  out the fields the trigger itself writes back. */
   fields?: string[];
+  /** Calls per space, one per changed document, in a fixed window.
+   *  DEFAULT_LIMIT when left out; false for none. */
+  limit?: Limit | false;
   changed(change: Changed<E>): void | Promise<void>;
+  /** A document over the budget, so the app can show it (write
+   *  `status: "limited"`, say). Without it, the document is logged and
+   *  skipped. Either way it isn't tried again. */
+  limited?(change: Changed<E>): void | Promise<void>;
 };
+
+export type Limit = { count: number; per: "minute" | "hour" | "day" };
+
+/** Strict on purpose: a trigger can start paid work. Raise it per trigger. */
+export const DEFAULT_LIMIT: Limit = { count: 50, per: "day" };
+
+const WINDOW_MS = { minute: 60_000, hour: 3_600_000, day: 86_400_000 } as const;
 
 /** A changed document, as it is now. */
 export type Changed<E> = {
@@ -67,7 +86,24 @@ export function syncTriggers<E extends Pick<SpacesEnv, "SPACES">>(env: E, trigge
     const result = await stub.changedDocs(message.from, message.to, collections);
     if (!result.ok) return;
     const space: TriggerSpace = { id: message.spaceId, write: (writes) => serverWrite(env, message.spaceId, writes) };
-    for (const { c, id, doc } of result.docs) await triggers[c].changed({ env, space, id, doc });
+    for (const [c, trigger] of Object.entries(triggers)) {
+      const docs = result.docs.filter((d) => d.c === c);
+      if (!docs.length) continue;
+      const limit = trigger.limit === undefined ? DEFAULT_LIMIT : trigger.limit;
+      let granted = docs.length;
+      if (limit) {
+        const taken = await stub.take(c, limit.count, WINDOW_MS[limit.per], docs.length);
+        if (!taken.ok) return;
+        granted = taken.granted;
+      }
+      for (const { id, doc } of docs.slice(0, granted)) await trigger.changed({ env, space, id, doc });
+      const over = docs.slice(granted);
+      if (!over.length) continue;
+      console.log(
+        JSON.stringify({ event: "sync_trigger_limited", trigger: c, space: message.spaceId.slice(0, 8), skipped: over.length }),
+      );
+      for (const { id, doc } of over) await trigger.limited?.({ env, space, id, doc });
+    }
   }
 
   /** The queue handler. A range whose trigger throws is retried (and
