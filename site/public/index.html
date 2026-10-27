@@ -160,7 +160,7 @@ footer a:hover{color:var(--ink)}
         <a class="btn ghost" href="#add">Add it to an app</a>
       </div>
       <div class="install">
-        <code id="install">pnpm add "@sync/server@github:johnkueh/flare#0.6.1&amp;path:/server"</code>
+        <code id="install">pnpm add "@sync/server@github:johnkueh/flare#0.7.0&amp;path:/server"</code>
         <button class="copy" type="button" data-copy="install">Copy</button>
       </div>
     </div>
@@ -303,11 +303,11 @@ footer a:hover{color:var(--ink)}
       </div>
       <div class="panel" role="tabpanel" id="p-worker" aria-labelledby="t-worker">
 <pre><span class="c"># Sync, plus whichever other pieces you want</span>
-pnpm add <span class="s">"@sync/server@github:johnkueh/flare#0.6.1&amp;path:/server"</span>
-pnpm add <span class="s">"@flare/auth@github:johnkueh/flare#0.6.1&amp;path:/auth"</span>
-pnpm add <span class="s">"@flare/flags@github:johnkueh/flare#0.6.1&amp;path:/flags"</span>
-pnpm add <span class="s">"@flare/push@github:johnkueh/flare#0.6.1&amp;path:/push"</span>
-pnpm add <span class="s">"@flare/links@github:johnkueh/flare#0.6.1&amp;path:/links"</span>
+pnpm add <span class="s">"@sync/server@github:johnkueh/flare#0.7.0&amp;path:/server"</span>
+pnpm add <span class="s">"@flare/auth@github:johnkueh/flare#0.7.0&amp;path:/auth"</span>
+pnpm add <span class="s">"@flare/flags@github:johnkueh/flare#0.7.0&amp;path:/flags"</span>
+pnpm add <span class="s">"@flare/push@github:johnkueh/flare#0.7.0&amp;path:/push"</span>
+pnpm add <span class="s">"@flare/links@github:johnkueh/flare#0.7.0&amp;path:/links"</span>
 
 <span class="c">// src/index.ts</span>
 <span class="k">export</span> { SpaceObject } <span class="k">from</span> <span class="s">"@sync/server/space"</span>;</pre>
@@ -327,7 +327,7 @@ maven(<span class="s">"https://jitpack.io"</span>)
 maven(<span class="s">"https://pub-796846793f3e431ab3a92e0577c57dde.r2.dev/maven"</span>)
 
 <span class="c">// app/build.gradle.kts</span>
-implementation(<span class="s">"com.github.johnkueh:flare:0.6.1"</span>)</pre>
+implementation(<span class="s">"com.github.johnkueh:flare:0.7.0"</span>)</pre>
         <p>Then the same calls as iOS, in Kotlin. <a href="https://github.com/johnkueh/flare/blob/main/SYNC.md">Full setup →</a></p>
       </div>
       <div class="panel" role="tabpanel" id="p-flags" aria-labelledby="t-flags" hidden>
@@ -380,7 +380,7 @@ npx flare-links check --wait</pre>
       </div>
       <div class="panel" role="tabpanel" id="p-analytics" aria-labelledby="t-analytics" hidden>
 <pre><span class="c"># your-core/Cargo.toml</span>
-telemetry-sdk = { git = <span class="s">"https://github.com/johnkueh/flare"</span>, tag = <span class="s">"0.6.1"</span>, features = [<span class="s">"uniffi"</span>] }
+telemetry-sdk = { git = <span class="s">"https://github.com/johnkueh/flare"</span>, tag = <span class="s">"0.7.0"</span>, features = [<span class="s">"uniffi"</span>] }
 
 <span class="c">// Swift</span>
 <span class="k">let</span> client = <span class="k">try</span> TelemetryClient(config: config)
