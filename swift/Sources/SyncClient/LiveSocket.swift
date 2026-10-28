@@ -1,4 +1,5 @@
 import Foundation
+import os
 
 /// The space's live WebSocket: stays connected while the app is in front,
 /// backing off between tries, and asks for a sync when another phone
@@ -96,9 +97,18 @@ public final class LiveSocket {
 
     private struct LiveVersion: Decodable { var version: UInt64 }
 
+    /// URLSession can call a ping's handler twice (again with an error when
+    /// the socket closes under it), and resuming twice traps, so only the
+    /// first call counts.
     private nonisolated static func ping(_ socket: URLSessionWebSocketTask) async throws {
+        let answered = OSAllocatedUnfairLock(initialState: false)
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             socket.sendPing { error in
+                let first = answered.withLock { done in
+                    defer { done = true }
+                    return !done
+                }
+                guard first else { return }
                 if let error { continuation.resume(throwing: error) } else { continuation.resume() }
             }
         }
