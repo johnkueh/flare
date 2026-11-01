@@ -11,8 +11,8 @@ export type TelemetrySqlEnv = {
   TELEMETRY_SQL_TOKEN?: string;
   /** Your Basin warehouse, `<account id>_telemetry` (TELEMETRY.md, "Querying"). */
   TELEMETRY_WAREHOUSE?: string;
-  /** Optional, JSON array: the only app ids a query may name in `app_id = '…'`, e.g. ["glp3"]. */
-  TELEMETRY_APPS?: string;
+  /** Optional: the only app ids a query may name in `app_id = '…'`, e.g. ["glp3"] (an array var, or the same as a JSON string). */
+  TELEMETRY_APPS?: string[] | string;
 };
 
 export const MAX_ROWS = 10_000;
@@ -53,13 +53,17 @@ export function checkQuery(sql: unknown, allowedApps?: string[]): string {
 }
 
 function allowedApps(env: TelemetrySqlEnv): string[] | undefined {
-  if (!env.TELEMETRY_APPS) return undefined;
-  try {
-    const list = JSON.parse(env.TELEMETRY_APPS);
-    return Array.isArray(list) ? list.filter((a): a is string => typeof a === "string") : undefined;
-  } catch {
-    throw new TelemetrySqlError("TELEMETRY_APPS is not a JSON array");
+  let list: unknown = env.TELEMETRY_APPS;
+  if (list == null || list === "") return undefined;
+  if (typeof list === "string") {
+    try {
+      list = JSON.parse(list);
+    } catch {
+      throw new TelemetrySqlError("TELEMETRY_APPS is not a JSON array");
+    }
   }
+  if (!Array.isArray(list)) throw new TelemetrySqlError("TELEMETRY_APPS is not a JSON array");
+  return list.filter((a): a is string => typeof a === "string");
 }
 
 export type QueryResult = { rows: Record<string, unknown>[]; truncated: boolean };
