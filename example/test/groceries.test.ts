@@ -1,4 +1,6 @@
+import { purgeDeletedAccounts } from "@flare/auth";
 import { env, runDurableObjectAlarm } from "cloudflare:test";
+import { authOptions } from "../src/index";
 import { describe, expect, it } from "vitest";
 import { Client } from "./helpers";
 
@@ -121,7 +123,7 @@ describe("accounts", () => {
 });
 
 describe("deleting an account", () => {
-  it("erases their own lists, leaves shared ones, forgets their phones, and signs them out everywhere", async () => {
+  it("signs them out everywhere, then 30 days on erases their own lists, leaves shared ones and forgets their phones", async () => {
     const mia = new Client("Mia's iPhone");
     const user = await mia.signInWithEmail("mia-deletes@example.com");
     const own = await mia.createList("Only mine");
@@ -139,9 +141,14 @@ describe("deleting an account", () => {
     const res = await mia.call("POST", "/v1/auth/delete-account", {});
     expect(res.status, JSON.stringify(res.body)).toBe(200);
 
-    // Signed out on every phone and browser.
+    // Signed out on every phone and browser; everything kept for 30 days.
     expect((await mia.call("GET", "/v1/me/spaces")).status).toBe(401);
     expect((await laptop.call("GET", "/v1/me/spaces")).status).toBe(401);
+    expect(await sam.call("GET", `/v1/invites/${own.code}`)).toMatchObject({ status: 200 });
+
+    // 30 days on, the daily purge.
+    const purged = await purgeDeletedAccounts(env, authOptions(env), Date.now() + 31 * 24 * 3600 * 1000);
+    expect(purged).toEqual({ purged: 1, failed: 0 });
     const pushRows = await env.DB.prepare("SELECT count(*) AS n FROM push_tokens WHERE member_id = ?").bind(user.id).first();
     expect(pushRows).toEqual({ n: 0 });
     const memberRows = await env.DB.prepare("SELECT count(*) AS n FROM space_members WHERE member_id = ?").bind(user.id).first();
@@ -152,10 +159,24 @@ describe("deleting an account", () => {
     const info = (await sam.call("GET", `/v1/spaces/${shared.spaceId}`)).body;
     expect(info.devices.map((m: { id: string }) => m.id)).toEqual([info.you]);
 
-    // Her own list is erased now, not in 30 days: data and invite code. The
+    // Her own list is erased at the purge, not 30 days after it: data and invite code. The
     // alarm is due at once and may already have run.
     await runDurableObjectAlarm(env.SPACES.get(env.SPACES.idFromString(own.spaceId)));
     expect((await sam.call("GET", `/v1/invites/${own.code}`)).status).toBe(404);
+  });
+
+  it("restores everything when they sign back in within 30 days", async () => {
+    const ada = new Client("Ada's iPhone");
+    const user = await ada.signInWithEmail("ada-returns@example.com");
+    const list = await ada.createList("Still here");
+    await ada.addItem(list.spaceId, "figs", "Figs");
+    expect((await ada.call("POST", "/v1/auth/delete-account", {})).status).toBe(200);
+    ada.token = null; // as FlareAuth.deleteAccount() leaves it
+
+    const back = await ada.signInWithEmail("ada-returns@example.com");
+    expect(back.id).toBe(user.id);
+    expect(await ada.items(list.spaceId)).toEqual(["Figs"]);
+    expect(await purgeDeletedAccounts(env, authOptions(env), Date.now() + 31 * 24 * 3600 * 1000)).toEqual({ purged: 0, failed: 0 });
   });
 });
 

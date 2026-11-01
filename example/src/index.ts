@@ -14,7 +14,7 @@
 // A trigger (@sync/server/triggers) files each item under an aisle once its
 // name is set, from a phone or the web page alike.
 
-import { authenticate, type FlareAuthEnv, flareAuth, whoIs } from "@flare/auth";
+import { authenticate, type FlareAuthEnv, type FlareAuthOptions, flareAuth, purgeDeletedAccounts, whoIs } from "@flare/auth";
 import { type FlagshipBinding, flagsHttp } from "@flare/flags/server";
 import { type FlarePush, flarePush, forgetPushMember, type PushEnv, type PushMessage, relinkPushMember } from "@flare/push";
 import { notifySpace } from "@flare/push/spaces";
@@ -59,23 +59,33 @@ export interface Env extends FlareAuthEnv, SpacesEnv, PushEnv {
 
 const STATUS: Record<string, number> = { NOT_FOUND: 404, NOT_MEMBER: 403, NOT_OWNER: 403, FULL: 409, INVALID_OPS: 400 };
 
+/** One place for auth's options: the Worker's requests and the daily purge share them. */
+export function authOptions(env: Env, ctx?: ExecutionContext): FlareAuthOptions {
+  return {
+    onLinkAccount: async ({ anonymousUserId, userId }) => {
+      await relinkMember(env, anonymousUserId, userId);
+      await relinkPushMember(env, anonymousUserId, userId);
+    },
+    // "Delete account" in the app marks the account deleted; 30 days on, the
+    // daily purge (scheduled below) calls this, then deletes the user. Their
+    // lists go (shared ones carry on without them), and their push tokens.
+    onDeleteAccount: async ({ userId }) => {
+      await leaveAllSpaces(env, userId);
+      await forgetPushMember(env, userId);
+    },
+    sendEmailCode: async (email, code) => {
+      const sent = sendCode(env, email, code);
+      if (ctx) ctx.waitUntil(sent);
+      else await sent;
+    },
+    ...(env.APPLE_BUNDLE_ID && { apple: { appBundleIdentifier: env.APPLE_BUNDLE_ID } }),
+  };
+}
+
 export default {
   async fetch(request, env, ctx): Promise<Response> {
     const url = new URL(request.url);
-    const auth = flareAuth(env, {
-      onLinkAccount: async ({ anonymousUserId, userId }) => {
-        await relinkMember(env, anonymousUserId, userId);
-        await relinkPushMember(env, anonymousUserId, userId);
-      },
-      // "Delete account" in the app: their lists (shared ones carry on
-      // without them) and their phones' push tokens, then the user.
-      onDeleteAccount: async ({ userId }) => {
-        await leaveAllSpaces(env, userId);
-        await forgetPushMember(env, userId);
-      },
-      sendEmailCode: async (email, code) => ctx.waitUntil(sendCode(env, email, code)),
-      ...(env.APPLE_BUNDLE_ID && { apple: { appBundleIdentifier: env.APPLE_BUNDLE_ID } }),
-    });
+    const auth = flareAuth(env, authOptions(env, ctx));
 
     if (url.pathname.startsWith("/v1/auth/")) return auth.handler(request);
 
@@ -110,6 +120,11 @@ export default {
     const who = await whoIs(auth, request.headers);
     if (!who) return Response.json({ code: "ATTESTATION_REQUIRED", message: "Sign in again." }, { status: 401 });
     return route(request, env, url, who, (spaceId, names) => ctx.waitUntil(notifyAdded(env, push, spaceId, who, request, names)));
+  },
+
+  // Daily (wrangler.jsonc crons): accounts deleted more than 30 days ago go for good.
+  async scheduled(_controller, env) {
+    await purgeDeletedAccounts(env, authOptions(env));
   },
 
   // Two queues: changes the spaces report (triggers), and push

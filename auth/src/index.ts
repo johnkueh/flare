@@ -9,17 +9,18 @@
 // bindings) and mounts it under the API's prefix:
 //
 //   const auth = flareAuth(env, { onDeleteAccount: ({ userId }) => leaveAllSpaces(env, userId) });
+//   // scheduled: purgeDeletedAccounts(env, sameOptions)
 //   if (url.pathname.startsWith("/v1/auth/")) return auth.handler(request);
 //   const space = spaceHttp(request, env, { prefix: "/v1", authenticate: (r) => authenticate(auth, r) });
 
 import { type BetterAuthOptions, betterAuth } from "better-auth";
 import { anonymous, bearer, emailOTP } from "better-auth/plugins";
 import type { AttestEnv } from "./attest/env";
-import { type DeleteAccount, flareDeleteAccount } from "./delete";
+import { type DeleteAccount, flareDeleteAccount, purgeExpired, purgeOne } from "./delete";
 import { type FlareAttestOptions, flareAttest } from "./plugin";
 
 export { CHALLENGE_HEADER, flareAttest } from "./plugin";
-export { flareDeleteAccount, type DeleteAccount, type DeletedAccount } from "./delete";
+export { DEFAULT_DELETE_AFTER_DAYS, flareDeleteAccount, type DeleteAccount, type DeletedAccount } from "./delete";
 export type { AttestEnv } from "./attest/env";
 
 export interface FlareAuthEnv extends AttestEnv {
@@ -40,10 +41,14 @@ export interface FlareAuthOptions {
   /** Where the auth routes are mounted. Default "/v1/auth". */
   basePath?: string;
   onLinkAccount?: LinkAccount;
-  /** Called by `POST /delete-account` before the user is deleted: delete
-   *  what the app keeps about them (leave their spaces, forget their push
-   *  tokens, drop their rows). Throwing stops the deletion. */
+  /** Called when a deleted account is purged (by `purgeDeletedAccounts`
+   *  once its grace period is over, or at once for an anonymous user):
+   *  delete what the app keeps about them (leave their spaces, forget their
+   *  push tokens, drop their rows). Throwing keeps the user for next time. */
   onDeleteAccount?: DeleteAccount;
+  /** Days a deleted account can be restored by signing back in, before it's
+   *  purged. Default 30; 0 purges at once. */
+  deleteAfterDays?: number;
   /** Sign in with Apple. Phones send the ID token Apple hands them, so
    *  `appBundleIdentifier` is what's checked; `clientId` (a Services ID)
    *  and `clientSecret` are for the web flow. */
@@ -84,7 +89,7 @@ export function flareAuthOptions(env: FlareAuthEnv, options: FlareAuthOptions = 
         },
       }),
       bearer(),
-      flareDeleteAccount(options.onDeleteAccount),
+      flareDeleteAccount({ onDeleteAccount: options.onDeleteAccount, deleteAfterDays: options.deleteAfterDays }),
       ...(sendEmailCode ? [emailOTP({ sendVerificationOTP: ({ email, otp }) => sendEmailCode(email, otp) })] : []),
       ...(options.betterAuth?.plugins ?? []),
     ],
@@ -96,6 +101,24 @@ export function flareAuth(env: FlareAuthEnv, options: FlareAuthOptions = {}) {
 }
 
 export type FlareAuth = ReturnType<typeof flareAuth>;
+
+/** Purges accounts deleted more than `deleteAfterDays` ago: run it daily
+ *  from the Worker's `scheduled` handler, with the same options as
+ *  `flareAuth`. */
+export async function purgeDeletedAccounts(env: FlareAuthEnv, options: FlareAuthOptions = {}, now = Date.now()) {
+  const context = await flareAuth(env, options).$context;
+  const result = await purgeExpired(context as unknown as Parameters<typeof purgeExpired>[0], options, now);
+  console.log(JSON.stringify({ event: "auth_accounts_purged", ...result }));
+  return result;
+}
+
+/** Deletes one account for good now (its app data via onDeleteAccount,
+ *  then the user), without waiting for the grace period: for someone who
+ *  asks by email. False when there's no such user. */
+export async function purgeAccount(env: FlareAuthEnv, userId: string, options: FlareAuthOptions = {}) {
+  const context = await flareAuth(env, options).$context;
+  return purgeOne(context as unknown as Parameters<typeof purgeOne>[0], userId, options);
+}
 
 /** Who a request is: the session's user and the device it signed in on
  *  (`web:<session id>` when it didn't attest). Null when signed out. */

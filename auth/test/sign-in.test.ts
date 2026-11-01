@@ -1,6 +1,6 @@
 import { env, SELF } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
-import { flareAuth } from "../src/index";
+import { flareAuth, purgeAccount, purgeDeletedAccounts } from "../src/index";
 import { registeredAndroidDevice } from "./android-helpers";
 import { call, challenge, registeredDevice, TestDevice } from "./helpers";
 
@@ -147,8 +147,9 @@ describe("authenticate (for spaceHttp)", () => {
 describe("deleting an account", () => {
   const deleteAccount = (token?: string) =>
     call("POST", "/delete-account", { body: {}, headers: token ? { Authorization: `Bearer ${token}` } : {} });
+  const DAY = 24 * 3600 * 1000;
 
-  async function userCount(userId: string) {
+  async function rowCount(userId: string) {
     const row = await env.DB.prepare(
       `SELECT (SELECT count(*) FROM "user" WHERE id = ?1) + (SELECT count(*) FROM session WHERE userId = ?1)
          + (SELECT count(*) FROM account WHERE userId = ?1) AS n`,
@@ -157,59 +158,119 @@ describe("deleting an account", () => {
       .first<{ n: number }>();
     return row?.n;
   }
+  const deletedAt = async (userId: string) =>
+    (await env.DB.prepare(`SELECT deletedAt FROM "user" WHERE id = ?`).bind(userId).first<{ deletedAt: string | null }>())?.deletedAt;
+  const seenByHook = (userId: string) => env.DB.prepare("SELECT email, anonymous FROM test_deletes WHERE user_id = ?").bind(userId).first();
+  const options = { onDeleteAccount: async () => {}, betterAuth: { emailAndPassword: { enabled: true } } };
+
+  async function signUp(email: string) {
+    const res = await call("POST", "/sign-up/email", { body: { email, password: "correct horse battery", name: "Leo" } });
+    expect(res.status).toBe(200);
+    return res;
+  }
+  const signInAgain = (email: string) => call("POST", "/sign-in/email", { body: { email, password: "correct horse battery" } });
 
   it("needs a session", async () => {
     expect((await deleteAccount()).status).toBe(401);
   });
 
-  it("deletes a signed-up user, their sign-in and the sessions on every phone, after the app's part", async () => {
-    const phone = await registeredDevice();
-    const anonymous = await phone.signIn();
-    const real = await phone.signIn({
-      path: "/sign-up/email",
-      body: { email: "leo@example.com", password: "correct horse battery", name: "Leo" },
-      headers: { Authorization: `Bearer ${tokenOf(anonymous)}` },
-    });
+  it("marks an account deleted and signs out every phone, keeping its data for 30 days", async () => {
+    const real = await signUp("leo@example.com");
     const userId = real.body.user.id;
-    const otherPhone = await call("POST", "/sign-in/email", {
-      body: { email: "leo@example.com", password: "correct horse battery" },
-    });
-    expect(await whoami(tokenOf(otherPhone))).toMatchObject({ userId });
+    const otherPhone = await signInAgain("leo@example.com");
 
     const res = await deleteAccount(tokenOf(real));
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({ deleted: true });
-    expect(await userCount(userId)).toBe(0);
+    expect(res.body.deleted).toBe(true);
+    const until = Date.parse(res.body.restorableUntil);
+    expect(until - Date.now()).toBeGreaterThan(29 * DAY);
+    expect(await deletedAt(userId)).toBeTruthy();
     expect(await whoami(tokenOf(real))).toBeNull();
     expect(await whoami(tokenOf(otherPhone))).toBeNull();
-    const seen = await env.DB.prepare("SELECT email, anonymous FROM test_deletes WHERE user_id = ?").bind(userId).first();
-    expect(seen).toEqual({ email: "leo@example.com", anonymous: 0 });
-
-    // The email is free again, and the phone's next anonymous sign-in is a new user.
-    const again = await call("POST", "/sign-up/email", {
-      body: { email: "leo@example.com", password: "correct horse battery", name: "Leo" },
-    });
-    expect(again.status).toBe(200);
-    expect(again.body.user.id).not.toBe(userId);
-    expect((await phone.signIn()).body.user.id).not.toBe(userId);
+    expect(await seenByHook(userId)).toBeNull(); // the app's data stays for now
   });
 
-  it("deletes an anonymous user too", async () => {
+  it("restores the account when they sign back in within the grace period", async () => {
+    const real = await signUp("mae@example.com");
+    const userId = real.body.user.id;
+    await deleteAccount(tokenOf(real));
+
+    const back = await signInAgain("mae@example.com");
+    expect(back.status).toBe(200);
+    expect(back.body.user.id).toBe(userId);
+    expect(await deletedAt(userId)).toBeNull();
+    expect(await whoami(tokenOf(back))).toMatchObject({ userId });
+  });
+
+  it("purges accounts past the grace period, the app's part first", async () => {
+    const old = await signUp("old@example.com");
+    const recent = await signUp("recent@example.com");
+    await deleteAccount(tokenOf(old));
+    await deleteAccount(tokenOf(recent));
+
+    const result = await purgeDeletedAccounts(env, { ...options, onDeleteAccount: hookToTable }, Date.now() + 31 * DAY - 1000 * 60);
+    expect(result.failed).toBe(0);
+    expect(await rowCount(old.body.user.id)).toBe(0);
+    expect(await rowCount(recent.body.user.id)).toBe(0);
+    expect(await seenByHook(old.body.user.id)).toEqual({ email: "old@example.com", anonymous: 0 });
+
+    // Not yet due: kept.
+    const fresh = await signUp("fresh@example.com");
+    await deleteAccount(tokenOf(fresh));
+    await purgeDeletedAccounts(env, { ...options, onDeleteAccount: hookToTable });
+    expect(await deletedAt(fresh.body.user.id)).toBeTruthy();
+
+    // Once purged, the email is free again.
+    expect((await signUp("old@example.com")).body.user.id).not.toBe(old.body.user.id);
+  });
+
+  it("purges one account now when they ask, without waiting", async () => {
+    const res = await signUp("asks@example.com");
+    await deleteAccount(tokenOf(res));
+    expect(await purgeAccount(env, res.body.user.id, { ...options, onDeleteAccount: hookToTable })).toBe(true);
+    expect(await rowCount(res.body.user.id)).toBe(0);
+    expect(await seenByHook(res.body.user.id)).toEqual({ email: "asks@example.com", anonymous: 0 });
+    expect(await purgeAccount(env, res.body.user.id, options)).toBe(false);
+  });
+
+  it("keeps an account whose purge fails in the app's part, for the next run", async () => {
+    const res = await signUp("keep-me@example.com");
+    await deleteAccount(tokenOf(res));
+    const result = await purgeDeletedAccounts(env, { ...options, onDeleteAccount: hookToTable }, Date.now() + 40 * DAY);
+    expect(result.failed).toBeGreaterThanOrEqual(1);
+    expect(await deletedAt(res.body.user.id)).toBeTruthy();
+  });
+
+  it("deletes an anonymous user at once, since they could never sign back in", async () => {
     const res = await (await registeredDevice()).signIn();
     const userId = res.body.user.id;
-    expect((await deleteAccount(tokenOf(res))).status).toBe(200);
-    expect(await userCount(userId)).toBe(0);
-    const seen = await env.DB.prepare("SELECT anonymous FROM test_deletes WHERE user_id = ?").bind(userId).first();
-    expect(seen).toEqual({ anonymous: 1 });
+    const out = await deleteAccount(tokenOf(res));
+    expect(out.status).toBe(200);
+    expect(out.body.restorableUntil).toBeNull();
+    expect(await rowCount(userId)).toBe(0);
+    expect(await seenByHook(userId)).toEqual({ email: expect.any(String), anonymous: 1 });
   });
 
-  it("keeps everything when the app's part fails, so the phone can try again", async () => {
-    const res = await call("POST", "/sign-up/email", {
-      body: { email: "keep-me@example.com", password: "correct horse battery", name: "Kept" },
-    });
-    const out = await deleteAccount(tokenOf(res));
+  it("keeps the user when an immediate delete fails in the app's part, so the phone can try again", async () => {
+    const res = await signUp("keep-me-now@example.com");
+    const auth = flareAuth(env, { ...options, deleteAfterDays: 0, onDeleteAccount: async () => { throw new Error("no"); } });
+    const out = await auth.handler(
+      new Request("https://api.test/v1/auth/delete-account", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${tokenOf(res)}`, "Content-Type": "application/json" },
+        body: "{}",
+      }),
+    );
     expect(out.status).toBe(500);
-    expect(out.body.code).toBe("DELETE_FAILED");
+    expect(await out.json()).toMatchObject({ code: "DELETE_FAILED" });
     expect(await whoami(tokenOf(res))).toMatchObject({ userId: res.body.user.id });
   });
 });
+
+/** The test Worker's onDeleteAccount, for purges run from the test. */
+async function hookToTable({ userId, email, isAnonymous }: { userId: string; email: string; isAnonymous: boolean }) {
+  if (email === "keep-me@example.com") throw new Error("the app's part failed");
+  await env.DB.prepare("INSERT INTO test_deletes (user_id, email, anonymous) VALUES (?, ?, ?)")
+    .bind(userId, email, isAnonymous ? 1 : 0)
+    .run();
+}

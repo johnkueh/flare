@@ -5,6 +5,8 @@
   "compatibility_date": "2026-08-15",
   // Better Auth needs node:async_hooks.
   "compatibility_flags": ["nodejs_compat"],
+  // Daily: purge accounts deleted more than 30 days ago (scheduled() in src/index.ts).
+  "triggers": { "crons": ["17 3 * * *"] },
   "assets": { "directory": "public", "binding": "ASSETS", "run_worker_first": ["/v1/*", "/dev/*", "/ofrep/*"] },
   "vars": {
     "BETTER_AUTH_URL": "http://localhost:8787",

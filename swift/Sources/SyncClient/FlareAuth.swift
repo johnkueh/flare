@@ -78,9 +78,9 @@ public final class FlareAuth: SpaceTokens {
         clear()
     }
 
-    /// Deletes the user on the server: their account, their sign-ins and
-    /// their sessions on every phone, after the app's own data
-    /// (`onDeleteAccount` on the server). Then forgets the session here, so
+    /// Deletes the account on the server (signing back in within the grace
+    /// period, 30 days by default, restores it) and signs out every phone.
+    /// Then forgets the session here, so
     /// the next `token()` starts a new anonymous user. Throws, and keeps
     /// the session, when the server didn't delete it.
     public func deleteAccount() async throws {
