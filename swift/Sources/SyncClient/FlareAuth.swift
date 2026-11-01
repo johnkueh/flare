@@ -78,6 +78,17 @@ public final class FlareAuth: SpaceTokens {
         clear()
     }
 
+    /// Deletes the user on the server: their account, their sign-ins and
+    /// their sessions on every phone, after the app's own data
+    /// (`onDeleteAccount` on the server). Then forgets the session here, so
+    /// the next `token()` starts a new anonymous user. Throws, and keeps
+    /// the session, when the server didn't delete it.
+    public func deleteAccount() async throws {
+        let token = try await token()
+        _ = try await post("delete-account", body: [:], headers: ["Authorization": "Bearer \(token)"])
+        clear()
+    }
+
     // MARK: Signing in
 
     /// POSTs a sign-in with a fresh assertion (and the current session, so

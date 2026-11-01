@@ -143,3 +143,73 @@ describe("authenticate (for spaceHttp)", () => {
     expect(await ok.json()).toEqual({ user: res.body.user.id });
   });
 });
+
+describe("deleting an account", () => {
+  const deleteAccount = (token?: string) =>
+    call("POST", "/delete-account", { body: {}, headers: token ? { Authorization: `Bearer ${token}` } : {} });
+
+  async function userCount(userId: string) {
+    const row = await env.DB.prepare(
+      `SELECT (SELECT count(*) FROM "user" WHERE id = ?1) + (SELECT count(*) FROM session WHERE userId = ?1)
+         + (SELECT count(*) FROM account WHERE userId = ?1) AS n`,
+    )
+      .bind(userId)
+      .first<{ n: number }>();
+    return row?.n;
+  }
+
+  it("needs a session", async () => {
+    expect((await deleteAccount()).status).toBe(401);
+  });
+
+  it("deletes a signed-up user, their sign-in and the sessions on every phone, after the app's part", async () => {
+    const phone = await registeredDevice();
+    const anonymous = await phone.signIn();
+    const real = await phone.signIn({
+      path: "/sign-up/email",
+      body: { email: "leo@example.com", password: "correct horse battery", name: "Leo" },
+      headers: { Authorization: `Bearer ${tokenOf(anonymous)}` },
+    });
+    const userId = real.body.user.id;
+    const otherPhone = await call("POST", "/sign-in/email", {
+      body: { email: "leo@example.com", password: "correct horse battery" },
+    });
+    expect(await whoami(tokenOf(otherPhone))).toMatchObject({ userId });
+
+    const res = await deleteAccount(tokenOf(real));
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ deleted: true });
+    expect(await userCount(userId)).toBe(0);
+    expect(await whoami(tokenOf(real))).toBeNull();
+    expect(await whoami(tokenOf(otherPhone))).toBeNull();
+    const seen = await env.DB.prepare("SELECT email, anonymous FROM test_deletes WHERE user_id = ?").bind(userId).first();
+    expect(seen).toEqual({ email: "leo@example.com", anonymous: 0 });
+
+    // The email is free again, and the phone's next anonymous sign-in is a new user.
+    const again = await call("POST", "/sign-up/email", {
+      body: { email: "leo@example.com", password: "correct horse battery", name: "Leo" },
+    });
+    expect(again.status).toBe(200);
+    expect(again.body.user.id).not.toBe(userId);
+    expect((await phone.signIn()).body.user.id).not.toBe(userId);
+  });
+
+  it("deletes an anonymous user too", async () => {
+    const res = await (await registeredDevice()).signIn();
+    const userId = res.body.user.id;
+    expect((await deleteAccount(tokenOf(res))).status).toBe(200);
+    expect(await userCount(userId)).toBe(0);
+    const seen = await env.DB.prepare("SELECT anonymous FROM test_deletes WHERE user_id = ?").bind(userId).first();
+    expect(seen).toEqual({ anonymous: 1 });
+  });
+
+  it("keeps everything when the app's part fails, so the phone can try again", async () => {
+    const res = await call("POST", "/sign-up/email", {
+      body: { email: "keep-me@example.com", password: "correct horse battery", name: "Kept" },
+    });
+    const out = await deleteAccount(tokenOf(res));
+    expect(out.status).toBe(500);
+    expect(out.body.code).toBe("DELETE_FAILED");
+    expect(await whoami(tokenOf(res))).toMatchObject({ userId: res.body.user.id });
+  });
+});

@@ -8,16 +8,18 @@
 // A Worker builds one auth per request (Better Auth wants the env's
 // bindings) and mounts it under the API's prefix:
 //
-//   const auth = flareAuth(env);
+//   const auth = flareAuth(env, { onDeleteAccount: ({ userId }) => leaveAllSpaces(env, userId) });
 //   if (url.pathname.startsWith("/v1/auth/")) return auth.handler(request);
 //   const space = spaceHttp(request, env, { prefix: "/v1", authenticate: (r) => authenticate(auth, r) });
 
 import { type BetterAuthOptions, betterAuth } from "better-auth";
 import { anonymous, bearer, emailOTP } from "better-auth/plugins";
 import type { AttestEnv } from "./attest/env";
+import { type DeleteAccount, flareDeleteAccount } from "./delete";
 import { type FlareAttestOptions, flareAttest } from "./plugin";
 
 export { CHALLENGE_HEADER, flareAttest } from "./plugin";
+export { flareDeleteAccount, type DeleteAccount, type DeletedAccount } from "./delete";
 export type { AttestEnv } from "./attest/env";
 
 export interface FlareAuthEnv extends AttestEnv {
@@ -38,6 +40,10 @@ export interface FlareAuthOptions {
   /** Where the auth routes are mounted. Default "/v1/auth". */
   basePath?: string;
   onLinkAccount?: LinkAccount;
+  /** Called by `POST /delete-account` before the user is deleted: delete
+   *  what the app keeps about them (leave their spaces, forget their push
+   *  tokens, drop their rows). Throwing stops the deletion. */
+  onDeleteAccount?: DeleteAccount;
   /** Sign in with Apple. Phones send the ID token Apple hands them, so
    *  `appBundleIdentifier` is what's checked; `clientId` (a Services ID)
    *  and `clientSecret` are for the web flow. */
@@ -78,6 +84,7 @@ export function flareAuthOptions(env: FlareAuthEnv, options: FlareAuthOptions = 
         },
       }),
       bearer(),
+      flareDeleteAccount(options.onDeleteAccount),
       ...(sendEmailCode ? [emailOTP({ sendVerificationOTP: ({ email, otp }) => sendEmailCode(email, otp) })] : []),
       ...(options.betterAuth?.plugins ?? []),
     ],

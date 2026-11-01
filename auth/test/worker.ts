@@ -10,6 +10,12 @@ export default {
           .bind(anonymousUserId, userId)
           .run();
       },
+      onDeleteAccount: async ({ userId, email, isAnonymous }) => {
+        if (email === "keep-me@example.com") throw new Error("the app's part failed");
+        await env.DB.prepare("INSERT INTO test_deletes (user_id, email, anonymous) VALUES (?, ?, ?)")
+          .bind(userId, email, isAnonymous ? 1 : 0)
+          .run();
+      },
       // Email and password stands in for Apple and email codes, which need
       // outside services, as "a real account".
       betterAuth: { emailAndPassword: { enabled: true } },

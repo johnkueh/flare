@@ -110,6 +110,17 @@ class FlareAuth(
         clear()
     }
 
+    /** Deletes the user on the server: their account, their sign-ins and
+     *  their sessions on every phone, after the app's own data
+     *  (`onDeleteAccount` on the server). Then forgets the session here, so
+     *  the next [token] starts a new anonymous user. Throws, and keeps the
+     *  session, when the server didn't delete it. */
+    suspend fun deleteAccount() {
+        val token = token()
+        post("/delete-account", JsonObject(emptyMap()), mapOf("Authorization" to "Bearer $token")).close()
+        clear()
+    }
+
     // Signing in
 
     /** POSTs a sign-in with a fresh signature (and the current session, so

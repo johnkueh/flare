@@ -1,3 +1,4 @@
+import { env, runDurableObjectAlarm } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
 import { Client } from "./helpers";
 
@@ -116,6 +117,45 @@ describe("accounts", () => {
     expect(me.spaces.map((s) => s.spaceId).sort()).toEqual([list.spaceId, ownList.spaceId].sort());
     const info = (await phone.call("GET", `/v1/spaces/${list.spaceId}`)).body;
     expect(info.devices.map((m: { id: string }) => m.id)).toEqual([account.id]);
+  });
+});
+
+describe("deleting an account", () => {
+  it("erases their own lists, leaves shared ones, forgets their phones, and signs them out everywhere", async () => {
+    const mia = new Client("Mia's iPhone");
+    const user = await mia.signInWithEmail("mia-deletes@example.com");
+    const own = await mia.createList("Only mine");
+    await mia.addItem(own.spaceId, "jam", "Jam");
+    const laptop = new Client("Mia's laptop", "web");
+    await laptop.signInWithEmail("mia-deletes@example.com");
+
+    const sam = new Client("Sam's iPhone");
+    await sam.signInAnonymously();
+    const shared = await sam.createList("Flat");
+    expect((await mia.call("POST", `/v1/spaces/${shared.spaceId}/join`, { code: shared.code })).status).toBe(200);
+    await mia.addItem(shared.spaceId, "oats", "Oats");
+    expect((await mia.call("PUT", "/v1/push/device", { platform: "ios", token: "b2".repeat(32) })).status).toBe(200);
+
+    const res = await mia.call("POST", "/v1/auth/delete-account", {});
+    expect(res.status, JSON.stringify(res.body)).toBe(200);
+
+    // Signed out on every phone and browser.
+    expect((await mia.call("GET", "/v1/me/spaces")).status).toBe(401);
+    expect((await laptop.call("GET", "/v1/me/spaces")).status).toBe(401);
+    const pushRows = await env.DB.prepare("SELECT count(*) AS n FROM push_tokens WHERE member_id = ?").bind(user.id).first();
+    expect(pushRows).toEqual({ n: 0 });
+    const memberRows = await env.DB.prepare("SELECT count(*) AS n FROM space_members WHERE member_id = ?").bind(user.id).first();
+    expect(memberRows).toEqual({ n: 0 });
+
+    // The shared list carries on without her, her items in it included.
+    expect(((await sam.items(shared.spaceId)) as string[]).sort()).toEqual(["Oats"]);
+    const info = (await sam.call("GET", `/v1/spaces/${shared.spaceId}`)).body;
+    expect(info.devices.map((m: { id: string }) => m.id)).toEqual([info.you]);
+
+    // Her own list is erased now, not in 30 days: data and invite code. The
+    // alarm is due at once and may already have run.
+    await runDurableObjectAlarm(env.SPACES.get(env.SPACES.idFromString(own.spaceId)));
+    expect((await sam.call("GET", `/v1/invites/${own.code}`)).status).toBe(404);
   });
 });
 

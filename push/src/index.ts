@@ -242,6 +242,12 @@ export async function relinkPushMember(env: Pick<PushEnv, "DB">, from: string, t
   await env.DB.prepare("UPDATE push_tokens SET member_id = ? WHERE member_id = ?").bind(to, from).run();
 }
 
+/** Forgets every device a member registered, for @flare/auth's
+ *  onDeleteAccount (call it next to leaveAllSpaces). */
+export async function forgetPushMember(env: Pick<PushEnv, "DB">, memberId: string): Promise<void> {
+  await env.DB.prepare("DELETE FROM push_tokens WHERE member_id = ?").bind(memberId).run();
+}
+
 function mutedChannels(row: TokenRow): string[] {
   try {
     const parsed: unknown = JSON.parse(row.muted_channels);

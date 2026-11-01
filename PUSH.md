@@ -150,7 +150,8 @@ export default {
   sender, and the scope defaults to the space.
 - Flare never notifies on writes by itself; you pick the writes that matter.
 - With `@flare/auth`, call `relinkPushMember(env, anonymousUserId, userId)`
-  next to `relinkMember` in `onLinkAccount`.
+  next to `relinkMember` in `onLinkAccount`, and `forgetPushMember(env, userId)`
+  next to `leaveAllSpaces` in `onDeleteAccount`.
 - Every send logs one JSON line: `push_sent`, `push_retry`, `push_gone`
   (the token was deleted) or `push_failed`.
 - Without `PUSH_QUEUE` bound, `notify()` sends right away.

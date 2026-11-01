@@ -16,7 +16,7 @@
 
 import { authenticate, type FlareAuthEnv, flareAuth, whoIs } from "@flare/auth";
 import { type FlagshipBinding, flagsHttp } from "@flare/flags/server";
-import { type FlarePush, flarePush, type PushEnv, type PushMessage, relinkPushMember } from "@flare/push";
+import { type FlarePush, flarePush, forgetPushMember, type PushEnv, type PushMessage, relinkPushMember } from "@flare/push";
 import { notifySpace } from "@flare/push/spaces";
 import { foldDocs, stampWrites, type Write } from "@sync/server/docs";
 import { nodeId } from "@sync/server/gateway";
@@ -25,6 +25,7 @@ import {
   changes,
   createSpace,
   joinSpace,
+  leaveAllSpaces,
   leaveSpace,
   previewInvite,
   pushOps,
@@ -65,6 +66,12 @@ export default {
       onLinkAccount: async ({ anonymousUserId, userId }) => {
         await relinkMember(env, anonymousUserId, userId);
         await relinkPushMember(env, anonymousUserId, userId);
+      },
+      // "Delete account" in the app: their lists (shared ones carry on
+      // without them) and their phones' push tokens, then the user.
+      onDeleteAccount: async ({ userId }) => {
+        await leaveAllSpaces(env, userId);
+        await forgetPushMember(env, userId);
       },
       sendEmailCode: async (email, code) => ctx.waitUntil(sendCode(env, email, code)),
       ...(env.APPLE_BUNDLE_ID && { apple: { appBundleIdentifier: env.APPLE_BUNDLE_ID } }),

@@ -336,11 +336,14 @@ export class SpaceObject extends DurableObject<SpaceEnv> {
     return { ok: true, info: this.infoFor(deviceId, now) };
   }
 
-  leave(deviceId: string): Result<{ time: number }> {
+  /** With `forget` (the member's account is being deleted), the member's
+   *  phone names go too, and a space left empty is erased now rather than
+   *  after EMPTY_SPACE_TTL_MS. */
+  leave(deviceId: string, options: { forget?: boolean } = {}): Result<{ time: number }> {
     const now = Date.now();
     const denied = this.memberCheck(deviceId, now);
     if (denied) return denied;
-    this.depart(deviceId, "left", now);
+    this.depart(deviceId, "left", now, options.forget === true);
     return { ok: true, time: now };
   }
 
@@ -813,12 +816,17 @@ export class SpaceObject extends DurableObject<SpaceEnv> {
     if (next) this.sql.exec("UPDATE meta SET owner = ?", next.id);
   }
 
-  private depart(deviceId: string, state: "left" | "removed", now: number) {
+  private depart(deviceId: string, state: "left" | "removed", now: number, forget = false) {
     const emptied = this.ctx.storage.transactionSync(() => {
       this.sql.exec("UPDATE devices SET state = ? WHERE id = ?", state, deviceId);
+      if (forget) {
+        this.sql.exec("UPDATE devices SET name = '' WHERE id = ?", deviceId);
+        this.sql.exec("DELETE FROM member_devices WHERE member_id = ?", deviceId);
+      }
       this.fixOwner();
       if (this.activeCount() > 0) return false;
-      this.sql.exec("UPDATE meta SET empty_since = ?", now);
+      // Forgetting: empty as long ago as the wait, so the alarm erases it now.
+      this.sql.exec("UPDATE meta SET empty_since = ?", forget ? now - EMPTY_SPACE_TTL_MS : now);
       return true;
     });
     for (const ws of this.ctx.getWebSockets(deviceId)) {
@@ -828,7 +836,7 @@ export class SpaceObject extends DurableObject<SpaceEnv> {
         // Already closed.
       }
     }
-    if (emptied) void this.alarmBy(now + EMPTY_SPACE_TTL_MS);
+    if (emptied) void this.alarmBy(forget ? now : now + EMPTY_SPACE_TTL_MS);
   }
 
   private infoFor(deviceId: string, now: number): SpaceInfo {
