@@ -5,7 +5,7 @@ export const MIGRATIONS = [
   "../server/migrations/space_members.sql",
   "../auth/migrations/attest.sql",
   "../auth/migrations/better_auth.sql",
-  "../auth/migrations/deleted_at.sql",
+  "../auth/migrations/deleted_accounts.sql",
   "../push/migrations/push_tokens.sql",
   "./migrations/dev_outbox.sql",
 ];

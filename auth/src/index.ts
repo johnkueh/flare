@@ -16,7 +16,7 @@
 import { type BetterAuthOptions, betterAuth } from "better-auth";
 import { anonymous, bearer, emailOTP } from "better-auth/plugins";
 import type { AttestEnv } from "./attest/env";
-import { type DeleteAccount, flareDeleteAccount, purgeExpired, purgeOne } from "./delete";
+import { type Context, type DeleteAccount, flareDeleteAccount, purgeExpired, purgeOne } from "./delete";
 import { type FlareAttestOptions, flareAttest } from "./plugin";
 
 export { CHALLENGE_HEADER, flareAttest } from "./plugin";
@@ -89,7 +89,7 @@ export function flareAuthOptions(env: FlareAuthEnv, options: FlareAuthOptions = 
         },
       }),
       bearer(),
-      flareDeleteAccount({ onDeleteAccount: options.onDeleteAccount, deleteAfterDays: options.deleteAfterDays }),
+      flareDeleteAccount(env, { onDeleteAccount: options.onDeleteAccount, deleteAfterDays: options.deleteAfterDays }),
       ...(sendEmailCode ? [emailOTP({ sendVerificationOTP: ({ email, otp }) => sendEmailCode(email, otp) })] : []),
       ...(options.betterAuth?.plugins ?? []),
     ],
@@ -107,7 +107,7 @@ export type FlareAuth = ReturnType<typeof flareAuth>;
  *  `flareAuth`. */
 export async function purgeDeletedAccounts(env: FlareAuthEnv, options: FlareAuthOptions = {}, now = Date.now()) {
   const context = await flareAuth(env, options).$context;
-  const result = await purgeExpired(context as unknown as Parameters<typeof purgeExpired>[0], options, now);
+  const result = await purgeExpired(env, context as unknown as Context, options, now);
   console.log(JSON.stringify({ event: "auth_accounts_purged", ...result }));
   return result;
 }
@@ -117,7 +117,7 @@ export async function purgeDeletedAccounts(env: FlareAuthEnv, options: FlareAuth
  *  asks by email. False when there's no such user. */
 export async function purgeAccount(env: FlareAuthEnv, userId: string, options: FlareAuthOptions = {}) {
   const context = await flareAuth(env, options).$context;
-  return purgeOne(context as unknown as Parameters<typeof purgeOne>[0], userId, options);
+  return purgeOne(env, context as unknown as Context, userId, options);
 }
 
 /** Who a request is: the session's user and the device it signed in on

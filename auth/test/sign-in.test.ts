@@ -159,7 +159,7 @@ describe("deleting an account", () => {
     return row?.n;
   }
   const deletedAt = async (userId: string) =>
-    (await env.DB.prepare(`SELECT deletedAt FROM "user" WHERE id = ?`).bind(userId).first<{ deletedAt: string | null }>())?.deletedAt;
+    (await env.DB.prepare("SELECT deleted_at FROM deleted_accounts WHERE user_id = ?").bind(userId).first<{ deleted_at: number }>())?.deleted_at ?? null;
   const seenByHook = (userId: string) => env.DB.prepare("SELECT email, anonymous FROM test_deletes WHERE user_id = ?").bind(userId).first();
   const options = { onDeleteAccount: async () => {}, betterAuth: { emailAndPassword: { enabled: true } } };
 

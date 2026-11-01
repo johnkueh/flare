@@ -25,7 +25,7 @@ Unlike `server/`, this package has npm dependencies (Better Auth,
 pnpm add "@flare/auth@github:johnkueh/flare#<tag>&path:/auth"
 ```
 
-Apply the files in `auth/migrations/` to the Worker's D1 (`attest.sql`, `better_auth.sql`, then `deleted_at.sql`), add the
+Apply the files in `auth/migrations/` to the Worker's D1 (`attest.sql`, `better_auth.sql`, then `deleted_accounts.sql`), add the
 `nodejs_compat` flag, and set `BETTER_AUTH_SECRET` (a secret),
 `BETTER_AUTH_URL`, `APP_ATTEST_APP_IDS`, `ANDROID_APP_IDS` and, while
 testing, `APP_ATTEST_ALLOW_DEVELOPMENT=true`. On a simulator or in CI,
@@ -82,7 +82,7 @@ that lets people make an account to let them delete it from inside the
 app, so every app on `@flare/auth` has `POST /v1/auth/delete-account`.
 
 It's a soft delete with a grace period. The route marks the user deleted
-(`deletedAt`) and ends every session they have, so all their phones are
+(a row in `deleted_accounts`) and ends every session they have, so all their phones are
 signed out, and answers `{ deleted: true, restorableUntil }`. Their data
 stays put. **Signing back in within `deleteAfterDays` (30 by default)
 restores the account** as it was. After that, `purgeDeletedAccounts`
@@ -92,7 +92,7 @@ theirs is purged straight away. Say the window in the app ("you have 30
 days to change your mind"): Apple accepts a delay it's told about, not a
 deactivation that never ends.
 
-Apply `auth/migrations/deleted_at.sql` after `better_auth.sql`, and run
+Apply `auth/migrations/deleted_accounts.sql` after `better_auth.sql`, and run
 the purge daily from the Worker's cron with the same options:
 
 ```ts

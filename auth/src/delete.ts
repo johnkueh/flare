@@ -3,13 +3,13 @@
 // that lets people make an account to let them delete it from inside the
 // app, so every app on @flare/auth gets this route.
 //
-// It's a soft delete with a grace period. The user is marked deleted and
-// signed out on every phone, and their data stays put for `deleteAfterDays`
-// (30 by default): signing back in within it restores the account as it
-// was. After that, `purgeDeletedAccounts` (run it daily from the Worker's
-// cron) deletes what the app keeps in `onDeleteAccount`, then the user,
-// their sign-in methods and sessions. An anonymous user can never sign back
-// in, so theirs is deleted straight away.
+// It's a soft delete with a grace period. The user goes into
+// `deleted_accounts` and is signed out on every phone, and their data stays
+// put for `deleteAfterDays` (30 by default): signing back in within it
+// restores the account as it was. After that, `purgeDeletedAccounts` (run
+// it daily from the Worker's cron) deletes what the app keeps in
+// `onDeleteAccount`, then the user, their sign-in methods and sessions. An
+// anonymous user can never sign back in, so theirs is purged straight away.
 //
 // Better Auth's own `/delete-user` stays off: it wants a password or a
 // session made in the last day, and an anonymous user with a year-long
@@ -28,15 +28,12 @@ export type DeleteAccount = (account: DeletedAccount) => Promise<unknown>;
 export const DEFAULT_DELETE_AFTER_DAYS = 30;
 const DAY_MS = 24 * 3600 * 1000;
 
-type FlareUser = { id: string; email: string; isAnonymous?: boolean | null; deletedAt?: Date | string | null };
+type FlareUser = { id: string; email: string; isAnonymous?: boolean | null };
 
-/** The bits of Better Auth's context the delete and the purge use. */
-type Context = {
-  adapter: {
-    findMany<T>(args: { model: string; where: { field: string; value: unknown; operator?: "lt" | "ne" }[]; limit?: number }): Promise<T[]>;
-  };
+/** The bits of Better Auth's context the purge uses. */
+export type Context = {
   internalAdapter: {
-    updateUser(id: string, data: Record<string, unknown>): Promise<unknown>;
+    findUserById(id: string): Promise<FlareUser | null>;
     deleteUser(id: string): Promise<void>;
     deleteUserSessions(id: string): Promise<void>;
   };
@@ -44,21 +41,13 @@ type Context = {
 
 export interface FlareDeleteOptions {
   onDeleteAccount?: DeleteAccount;
-  /** Days a deleted account can be restored by signing back in. 0 deletes at once. */
+  /** Days a deleted account can be restored by signing back in. 0 purges at once. */
   deleteAfterDays?: number;
 }
 
-export const flareDeleteAccount = (options: FlareDeleteOptions = {}) =>
+export const flareDeleteAccount = (env: { DB: D1Database }, options: FlareDeleteOptions = {}) =>
   ({
     id: "flare-delete-account",
-    schema: {
-      user: {
-        fields: {
-          // Set by /delete-account; cleared by signing back in. Null for everyone else.
-          deletedAt: { type: "date", required: false, input: false },
-        },
-      },
-    },
     endpoints: {
       deleteAccount: createAuthEndpoint(
         "/delete-account",
@@ -68,16 +57,16 @@ export const flareDeleteAccount = (options: FlareDeleteOptions = {}) =>
           const context = ctx.context as unknown as Context;
           const days = options.deleteAfterDays ?? DEFAULT_DELETE_AFTER_DAYS;
           if (user.isAnonymous === true || days <= 0) {
-            await purge(context, user, options.onDeleteAccount);
+            await purge(env, context, user, options.onDeleteAccount);
             deleteSessionCookie(ctx);
             return ctx.json({ deleted: true, restorableUntil: null });
           }
-          const now = new Date();
-          await context.internalAdapter.updateUser(user.id, { deletedAt: now });
+          const now = Date.now();
+          await env.DB.prepare("INSERT OR IGNORE INTO deleted_accounts (user_id, deleted_at) VALUES (?, ?)").bind(user.id, now).run();
           await context.internalAdapter.deleteUserSessions(user.id);
           deleteSessionCookie(ctx);
-          log("auth_account_deleted", user, { soft: true });
-          return ctx.json({ deleted: true, restorableUntil: new Date(now.getTime() + days * DAY_MS).toISOString() });
+          log("auth_account_deleted", user.id, { soft: true });
+          return ctx.json({ deleted: true, restorableUntil: new Date(now + days * DAY_MS).toISOString() });
         },
       ),
     },
@@ -88,17 +77,9 @@ export const flareDeleteAccount = (options: FlareDeleteOptions = {}) =>
             session: {
               create: {
                 // Signing in to an account deleted within the grace period restores it.
-                async after(session, ctx) {
-                  const context = ctx?.context as unknown as Context | undefined;
-                  if (!context) return;
-                  const [user] = await context.adapter.findMany<FlareUser>({
-                    model: "user",
-                    where: [{ field: "id", value: session.userId }],
-                    limit: 1,
-                  });
-                  if (!user?.deletedAt) return;
-                  await context.internalAdapter.updateUser(user.id, { deletedAt: null });
-                  log("auth_account_restored", user);
+                async after(session) {
+                  const { meta } = await env.DB.prepare("DELETE FROM deleted_accounts WHERE user_id = ?").bind(session.userId).run();
+                  if (meta.changes > 0) log("auth_account_restored", session.userId);
                 },
               },
             },
@@ -108,21 +89,18 @@ export const flareDeleteAccount = (options: FlareDeleteOptions = {}) =>
     },
   }) satisfies BetterAuthPlugin;
 
-/** Deletes every account whose grace period is over: the app's data
- *  (`onDeleteAccount`), then the user. One that fails is left for the next
- *  run. Returns how many went and how many failed. */
-export async function purgeExpired(context: Context, options: FlareDeleteOptions, now = Date.now()) {
+/** Purges every account whose grace period is over. One that fails stays
+ *  for the next run. */
+export async function purgeExpired(env: { DB: D1Database }, context: Context, options: FlareDeleteOptions, now = Date.now()) {
   const days = options.deleteAfterDays ?? DEFAULT_DELETE_AFTER_DAYS;
-  const due = await context.adapter.findMany<FlareUser>({
-    model: "user",
-    where: [{ field: "deletedAt", value: new Date(now - days * DAY_MS), operator: "lt" }],
-    limit: 500,
-  });
+  const { results } = await env.DB.prepare("SELECT user_id FROM deleted_accounts WHERE deleted_at < ? ORDER BY deleted_at LIMIT 500")
+    .bind(now - days * DAY_MS)
+    .all<{ user_id: string }>();
   let purged = 0;
   let failed = 0;
-  for (const user of due) {
+  for (const { user_id } of results) {
     try {
-      await purge(context, user, options.onDeleteAccount);
+      await purgeOne(env, context, user_id, options);
       purged++;
     } catch {
       failed++;
@@ -133,15 +111,18 @@ export async function purgeExpired(context: Context, options: FlareDeleteOptions
 
 /** Deletes one user for good now, deleted or not: for someone who asks by
  *  email instead of waiting out the grace period. False when there's no such user. */
-export async function purgeOne(context: Context, userId: string, options: FlareDeleteOptions) {
-  const [user] = await context.adapter.findMany<FlareUser>({ model: "user", where: [{ field: "id", value: userId }], limit: 1 });
-  if (!user) return false;
-  await purge(context, user, options.onDeleteAccount);
+export async function purgeOne(env: { DB: D1Database }, context: Context, userId: string, options: FlareDeleteOptions) {
+  const user = await context.internalAdapter.findUserById(userId);
+  if (!user) {
+    await env.DB.prepare("DELETE FROM deleted_accounts WHERE user_id = ?").bind(userId).run();
+    return false;
+  }
+  await purge(env, context, user, options.onDeleteAccount);
   return true;
 }
 
 /** The app's data first; if that throws, nothing else goes, so it can be tried again. */
-async function purge(context: Context, user: FlareUser, onDeleteAccount?: DeleteAccount) {
+async function purge(env: { DB: D1Database }, context: Context, user: FlareUser, onDeleteAccount?: DeleteAccount) {
   const account: DeletedAccount = { userId: user.id, email: user.email, isAnonymous: user.isAnonymous === true };
   try {
     await onDeleteAccount?.(account);
@@ -151,9 +132,10 @@ async function purge(context: Context, user: FlareUser, onDeleteAccount?: Delete
   }
   await context.internalAdapter.deleteUser(user.id);
   await context.internalAdapter.deleteUserSessions(user.id);
-  log("auth_account_deleted", user, { soft: false });
+  await env.DB.prepare("DELETE FROM deleted_accounts WHERE user_id = ?").bind(user.id).run();
+  log("auth_account_deleted", user.id, { soft: false, anonymous: account.isAnonymous });
 }
 
-function log(event: string, user: FlareUser, extra: Record<string, unknown> = {}) {
-  console.log(JSON.stringify({ event, user: user.id.slice(0, 8), anonymous: user.isAnonymous === true, ...extra }));
+function log(event: string, userId: string, extra: Record<string, unknown> = {}) {
+  console.log(JSON.stringify({ event, user: userId.slice(0, 8), ...extra }));
 }

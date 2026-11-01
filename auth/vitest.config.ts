@@ -24,7 +24,7 @@ export default defineConfig({
             TEST_MIGRATIONS: [
               migration("attest", "./migrations/attest.sql"),
               migration("better_auth", "./migrations/better_auth.sql"),
-              migration("deleted_at", "./migrations/deleted_at.sql"),
+              migration("deleted_accounts", "./migrations/deleted_accounts.sql"),
               migration("test_links", "./test/migrations/test_links.sql"),
             ],
             APP_ATTEST_TEST_ROOT_PEM: ca.rootPem,
