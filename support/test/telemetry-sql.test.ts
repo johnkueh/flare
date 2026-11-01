@@ -41,6 +41,13 @@ describe("runTelemetrySql", () => {
     expect(JSON.parse(seen!.init.body as string)).toEqual({ warehouse: "abc123_telemetry", query: Q });
   });
 
+  it("takes TELEMETRY_APPS as an array var or a JSON string", async () => {
+    const ok = (async () => Response.json({ success: true, result: { rows: [] } })) as unknown as typeof fetch;
+    await expect(runTelemetrySql({ ...env, TELEMETRY_APPS: ["glp3"] }, Q, ok)).resolves.toEqual({ rows: [], truncated: false });
+    await expect(runTelemetrySql({ ...env, TELEMETRY_APPS: ["other"] }, Q, ok)).rejects.toThrow("not readable");
+    await expect(runTelemetrySql({ ...env, TELEMETRY_APPS: "glp3" }, Q, ok)).rejects.toThrow("not a JSON array");
+  });
+
   it("reports Basin's error and refuses when not set up", async () => {
     const fake = (async () => Response.json({ success: false, errors: [{ message: "bad column" }] }, { status: 400 })) as unknown as typeof fetch;
     await expect(runTelemetrySql(env, Q, fake)).rejects.toThrow("Basin SQL: bad column");
