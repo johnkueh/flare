@@ -204,6 +204,7 @@ describe("inbox over MCP", () => {
     const list = await mcp("tools/list");
     const names = (list.body.result?.tools as { name: string }[]).map((t) => t.name);
     expect(names).toEqual(expect.arrayContaining(["list_conversations", "get_conversation", "reply", "add_note", "set_status", "search", "stats", "start_conversation"]));
+    expect(names).not.toContain("telemetry_query"); // no Basin SQL token in the test Worker
   });
 
   it("lists, reads, notes, replies by email when the customer has left, closes and searches", async () => {

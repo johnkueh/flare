@@ -2,8 +2,9 @@
 
 import type { OAuthHelpers } from "@cloudflare/workers-oauth-provider";
 import type { Conversation } from "./conversation.ts";
+import type { TelemetrySqlEnv } from "./telemetry-sql.ts";
 
-export type SupportEnv = {
+export type SupportEnv = TelemetrySqlEnv & {
   DB: D1Database;
   CONVERSATION: DurableObjectNamespace<Conversation>;
   EMAIL?: SendEmail;

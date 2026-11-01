@@ -27,6 +27,9 @@
         "greeting": "Ask us anything about My App."
       }
     }
+    // Optional telemetry SQL for the MCP (SUPPORT.md, "Telemetry SQL"): uncomment, then
+    // `wrangler secret put TELEMETRY_SQL_TOKEN`.
+    // , "TELEMETRY_WAREHOUSE": "<account id>_telemetry", "TELEMETRY_APPS": ["myapp"]
   },
   // Secrets (wrangler secret put): SUPPORT_SECRET, ADMIN_KEY, APP_SECRETS ({"myapp": "<secret>"}).
   "secrets": { "required": ["SUPPORT_SECRET", "ADMIN_KEY", "APP_SECRETS"] },
