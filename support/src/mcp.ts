@@ -7,6 +7,7 @@
 
 import { app as appConfig, apps, type SupportEnv } from "./config.ts";
 import { conversationStub, startConversation } from "./api.ts";
+import { MAX_ROWS, runTelemetrySql, TelemetrySqlError, telemetrySqlEnabled } from "./telemetry-sql.ts";
 import { contactForEmail, getContact, inboxRow, type InboxRow, listInbox, search, setStatus, stats } from "./inbox.ts";
 
 const VERSIONS = ["2026-07-28", "2025-11-25", "2025-06-18", "2025-03-26"];
@@ -189,7 +190,25 @@ const TOOLS: Tool[] = [
   },
 ];
 
-const listedTools = TOOLS.map(({ run: _run, ...t }) => t);
+// Listed only when the server has a Basin SQL token (telemetry-sql.ts).
+const TELEMETRY_TOOL: Tool = {
+  name: "telemetry_query",
+  title: "Query telemetry",
+  description: `Runs one read-only SQL SELECT over \`telemetry.events\` (Cloudflare Basin, TELEMETRY.md): columns received_at, client_ts, app_id, env, platform, install_id, session_id, user_id, event_id, name, params (json: json_get_str/json_get_int), app_version, app_build, os_version, device_model, locale, country, sdk. Filter on app_id and on __ingest_ts (the day partition). At most ${MAX_ROWS} rows.`,
+  inputSchema: { type: "object", properties: { sql: str("One SELECT statement") }, required: ["sql"] },
+  annotations: { readOnlyHint: true },
+  run: async (env, a) => {
+    try {
+      return await runTelemetrySql(env, a.sql);
+    } catch (err) {
+      if (err instanceof TelemetrySqlError) throw new ToolError(err.message);
+      throw err;
+    }
+  },
+};
+
+const toolsFor = (env: SupportEnv) => (telemetrySqlEnabled(env) ? [...TOOLS, TELEMETRY_TOOL] : TOOLS);
+const listed = (env: SupportEnv) => toolsFor(env).map(({ run: _run, ...t }) => t);
 
 const rpcResult = (id: JsonRpc["id"], result: Record<string, unknown>) => ({
   jsonrpc: "2.0",
@@ -216,9 +235,9 @@ async function dispatch(env: SupportEnv, msg: JsonRpc): Promise<object | null> {
     case "ping":
       return rpcResult(msg.id, {});
     case "tools/list":
-      return rpcResult(msg.id, { tools: listedTools, ttlMs: 3_600_000, cacheScope: "public" });
+      return rpcResult(msg.id, { tools: listed(env), ttlMs: 3_600_000, cacheScope: "public" });
     case "tools/call": {
-      const tool = TOOLS.find((t) => t.name === params.name);
+      const tool = toolsFor(env).find((t) => t.name === params.name);
       if (!tool) return rpcError(msg.id, -32602, `Unknown tool: ${String(params.name)}`);
       try {
         const out = await tool.run(env, (params.arguments as Record<string, unknown>) ?? {});

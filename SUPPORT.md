@@ -104,6 +104,21 @@ partition third-party storage.
 | `search` | Conversations whose messages contain every word |
 | `stats` | Per app: open, waiting on you, and since when |
 | `start_conversation` | Email someone first; their reply lands in the inbox |
+| `telemetry_query` | One read-only SELECT over `telemetry.events` ([TELEMETRY.md](TELEMETRY.md)); listed only when set up, below |
+
+### Telemetry SQL (optional)
+
+The same connector can read your telemetry table, so Claude, and an artifact that declares the
+connector (a metrics dashboard), can query `telemetry.events` live. Make a Cloudflare API token
+that can only read the telemetry catalog (Basin SQL read), then:
+
+```sh
+npx wrangler secret put TELEMETRY_SQL_TOKEN
+```
+
+and set `TELEMETRY_WAREHOUSE` (`<account id>_telemetry`) in `vars`. `TELEMETRY_APPS`
+(`["myapp"]`) makes every query name its `app_id`, as a guard against reading the wrong app;
+the token is what actually limits access. Queries are one SELECT, at most 10,000 rows back.
 
 The admin key also works as a bearer token on `/mcp`, for scripts.
 
