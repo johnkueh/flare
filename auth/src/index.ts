@@ -20,7 +20,7 @@ import { type Context, type DeleteAccount, flareDeleteAccount, purgeExpired, pur
 import { type FlareAttestOptions, flareAttest } from "./plugin";
 
 export { CHALLENGE_HEADER, flareAttest } from "./plugin";
-export { DEFAULT_DELETE_AFTER_DAYS, flareDeleteAccount, type DeleteAccount, type DeletedAccount } from "./delete";
+export { flareDeleteAccount, type DeleteAccount, type DeletedAccount } from "./delete";
 export type { AttestEnv } from "./attest/env";
 
 export interface FlareAuthEnv extends AttestEnv {
@@ -41,13 +41,15 @@ export interface FlareAuthOptions {
   /** Where the auth routes are mounted. Default "/v1/auth". */
   basePath?: string;
   onLinkAccount?: LinkAccount;
-  /** Called when a deleted account is purged (by `purgeDeletedAccounts`
-   *  once its grace period is over, or at once for an anonymous user):
+  /** Called when a deleted account is purged (by `purgeAccount`, or by
+   *  `purgeDeletedAccounts` when `deleteAfterDays` is set):
    *  delete what the app keeps about them (leave their spaces, forget their
    *  push tokens, drop their rows). Throwing keeps the user for next time. */
   onDeleteAccount?: DeleteAccount;
-  /** Days a deleted account can be restored by signing back in, before it's
-   *  purged. Default 30; 0 purges at once. */
+  /** Purge deleted accounts this many days on, through a daily
+   *  `purgeDeletedAccounts`; 0 purges at once. Unset (the default): a
+   *  deleted account is inactive and signed out, and its data stays until
+   *  `purgeAccount`. */
   deleteAfterDays?: number;
   /** Sign in with Apple. Phones send the ID token Apple hands them, so
    *  `appBundleIdentifier` is what's checked; `clientId` (a Services ID)
@@ -102,9 +104,9 @@ export function flareAuth(env: FlareAuthEnv, options: FlareAuthOptions = {}) {
 
 export type FlareAuth = ReturnType<typeof flareAuth>;
 
-/** Purges accounts deleted more than `deleteAfterDays` ago: run it daily
- *  from the Worker's `scheduled` handler, with the same options as
- *  `flareAuth`. */
+/** Purges accounts deleted more than `deleteAfterDays` ago (nothing when
+ *  it's unset): run it daily from the Worker's `scheduled` handler, with the
+ *  same options as `flareAuth`. */
 export async function purgeDeletedAccounts(env: FlareAuthEnv, options: FlareAuthOptions = {}, now = Date.now()) {
   const context = await flareAuth(env, options).$context;
   const result = await purgeExpired(env, context as unknown as Context, options, now);
@@ -113,8 +115,7 @@ export async function purgeDeletedAccounts(env: FlareAuthEnv, options: FlareAuth
 }
 
 /** Deletes one account for good now (its app data via onDeleteAccount,
- *  then the user), without waiting for the grace period: for someone who
- *  asks by email. False when there's no such user. */
+ *  then the user): for someone who asks for their data to go. False when there's no such user. */
 export async function purgeAccount(env: FlareAuthEnv, userId: string, options: FlareAuthOptions = {}) {
   const context = await flareAuth(env, options).$context;
   return purgeOne(env, context as unknown as Context, userId, options);

@@ -3,13 +3,14 @@
 // that lets people make an account to let them delete it from inside the
 // app, so every app on @flare/auth gets this route.
 //
-// It's a soft delete with a grace period. The user goes into
-// `deleted_accounts` and is signed out on every phone, and their data stays
-// put for `deleteAfterDays` (30 by default): signing back in within it
-// restores the account as it was. After that, `purgeDeletedAccounts` (run
-// it daily from the Worker's cron) deletes what the app keeps in
-// `onDeleteAccount`, then the user, their sign-in methods and sessions. An
-// anonymous user can never sign back in, so theirs is purged straight away.
+// It's a soft delete. The user goes into `deleted_accounts` (inactive) and
+// is signed out on every phone; their data stays until you delete it:
+// `purgeAccount` for one person (say, someone who asks by email), which runs
+// the app's `onDeleteAccount` and then deletes the user, their sign-in
+// methods and sessions. Signing back in makes the account active again.
+// With `deleteAfterDays` set, `purgeDeletedAccounts` (run daily from the
+// Worker's cron) purges accounts deleted longer ago than that; without it,
+// nothing is purged automatically.
 //
 // Better Auth's own `/delete-user` stays off: it wants a password or a
 // session made in the last day, and an anonymous user with a year-long
@@ -25,7 +26,6 @@ export type DeletedAccount = { userId: string; email: string; isAnonymous: boole
 
 export type DeleteAccount = (account: DeletedAccount) => Promise<unknown>;
 
-export const DEFAULT_DELETE_AFTER_DAYS = 30;
 const DAY_MS = 24 * 3600 * 1000;
 
 type FlareUser = { id: string; email: string; isAnonymous?: boolean | null };
@@ -41,7 +41,8 @@ export type Context = {
 
 export interface FlareDeleteOptions {
   onDeleteAccount?: DeleteAccount;
-  /** Days a deleted account can be restored by signing back in. 0 purges at once. */
+  /** Purge deleted accounts this many days on (with `purgeDeletedAccounts`
+   *  on a cron); 0 purges at once. Unset: kept until `purgeAccount`. */
   deleteAfterDays?: number;
 }
 
@@ -55,8 +56,8 @@ export const flareDeleteAccount = (env: { DB: D1Database }, options: FlareDelete
         async (ctx) => {
           const user = ctx.context.session.user as typeof ctx.context.session.user & FlareUser;
           const context = ctx.context as unknown as Context;
-          const days = options.deleteAfterDays ?? DEFAULT_DELETE_AFTER_DAYS;
-          if (user.isAnonymous === true || days <= 0) {
+          const days = options.deleteAfterDays;
+          if (days !== undefined && days <= 0) {
             await purge(env, context, user, options.onDeleteAccount);
             deleteSessionCookie(ctx);
             return ctx.json({ deleted: true, restorableUntil: null });
@@ -66,7 +67,7 @@ export const flareDeleteAccount = (env: { DB: D1Database }, options: FlareDelete
           await context.internalAdapter.deleteUserSessions(user.id);
           deleteSessionCookie(ctx);
           log("auth_account_deleted", user.id, { soft: true });
-          return ctx.json({ deleted: true, restorableUntil: new Date(now + days * DAY_MS).toISOString() });
+          return ctx.json({ deleted: true, restorableUntil: days === undefined ? null : new Date(now + days * DAY_MS).toISOString() });
         },
       ),
     },
@@ -76,7 +77,7 @@ export const flareDeleteAccount = (env: { DB: D1Database }, options: FlareDelete
           databaseHooks: {
             session: {
               create: {
-                // Signing in to an account deleted within the grace period restores it.
+                // Signing back in to a deleted (inactive) account makes it active again.
                 async after(session) {
                   const { meta } = await env.DB.prepare("DELETE FROM deleted_accounts WHERE user_id = ?").bind(session.userId).run();
                   if (meta.changes > 0) log("auth_account_restored", session.userId);
@@ -89,10 +90,11 @@ export const flareDeleteAccount = (env: { DB: D1Database }, options: FlareDelete
     },
   }) satisfies BetterAuthPlugin;
 
-/** Purges every account whose grace period is over. One that fails stays
- *  for the next run. */
+/** Purges every account deleted more than `deleteAfterDays` ago (none
+ *  without it). One that fails stays for the next run. */
 export async function purgeExpired(env: { DB: D1Database }, context: Context, options: FlareDeleteOptions, now = Date.now()) {
-  const days = options.deleteAfterDays ?? DEFAULT_DELETE_AFTER_DAYS;
+  const days = options.deleteAfterDays;
+  if (days === undefined) return { purged: 0, failed: 0 };
   const { results } = await env.DB.prepare("SELECT user_id FROM deleted_accounts WHERE deleted_at < ? ORDER BY deleted_at LIMIT 500")
     .bind(now - days * DAY_MS)
     .all<{ user_id: string }>();
@@ -109,8 +111,8 @@ export async function purgeExpired(env: { DB: D1Database }, context: Context, op
   return { purged, failed };
 }
 
-/** Deletes one user for good now, deleted or not: for someone who asks by
- *  email instead of waiting out the grace period. False when there's no such user. */
+/** Deletes one user for good now, deleted or not: for someone who asks for
+ *  their data to go. False when there's no such user. */
 export async function purgeOne(env: { DB: D1Database }, context: Context, userId: string, options: FlareDeleteOptions) {
   const user = await context.internalAdapter.findUserById(userId);
   if (!user) {

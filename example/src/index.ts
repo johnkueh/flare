@@ -14,7 +14,7 @@
 // A trigger (@sync/server/triggers) files each item under an aisle once its
 // name is set, from a phone or the web page alike.
 
-import { authenticate, type FlareAuthEnv, type FlareAuthOptions, flareAuth, purgeDeletedAccounts, whoIs } from "@flare/auth";
+import { authenticate, type FlareAuthEnv, type FlareAuthOptions, flareAuth, whoIs } from "@flare/auth";
 import { type FlagshipBinding, flagsHttp } from "@flare/flags/server";
 import { type FlarePush, flarePush, forgetPushMember, type PushEnv, type PushMessage, relinkPushMember } from "@flare/push";
 import { notifySpace } from "@flare/push/spaces";
@@ -66,9 +66,10 @@ export function authOptions(env: Env, ctx?: ExecutionContext): FlareAuthOptions 
       await relinkMember(env, anonymousUserId, userId);
       await relinkPushMember(env, anonymousUserId, userId);
     },
-    // "Delete account" in the app marks the account deleted; 30 days on, the
-    // daily purge (scheduled below) calls this, then deletes the user. Their
-    // lists go (shared ones carry on without them), and their push tokens.
+    // "Delete account" in the app makes the account inactive and signs it
+    // out; purgeAccount (when they ask for their data to go) calls this, then
+    // deletes the user. Their lists go (shared ones carry on without them),
+    // and their push tokens.
     onDeleteAccount: async ({ userId }) => {
       await leaveAllSpaces(env, userId);
       await forgetPushMember(env, userId);
@@ -120,11 +121,6 @@ export default {
     const who = await whoIs(auth, request.headers);
     if (!who) return Response.json({ code: "ATTESTATION_REQUIRED", message: "Sign in again." }, { status: 401 });
     return route(request, env, url, who, (spaceId, names) => ctx.waitUntil(notifyAdded(env, push, spaceId, who, request, names)));
-  },
-
-  // Daily (wrangler.jsonc crons): accounts deleted more than 30 days ago go for good.
-  async scheduled(_controller, env) {
-    await purgeDeletedAccounts(env, authOptions(env));
   },
 
   // Two queues: changes the spaces report (triggers), and push

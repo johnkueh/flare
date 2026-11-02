@@ -174,23 +174,24 @@ describe("deleting an account", () => {
     expect((await deleteAccount()).status).toBe(401);
   });
 
-  it("marks an account deleted and signs out every phone, keeping its data for 30 days", async () => {
+  it("marks an account inactive and signs out every phone, keeping its data", async () => {
     const real = await signUp("leo@example.com");
     const userId = real.body.user.id;
     const otherPhone = await signInAgain("leo@example.com");
 
     const res = await deleteAccount(tokenOf(real));
     expect(res.status).toBe(200);
-    expect(res.body.deleted).toBe(true);
-    const until = Date.parse(res.body.restorableUntil);
-    expect(until - Date.now()).toBeGreaterThan(29 * DAY);
+    expect(res.body).toEqual({ deleted: true, restorableUntil: null });
     expect(await deletedAt(userId)).toBeTruthy();
     expect(await whoami(tokenOf(real))).toBeNull();
     expect(await whoami(tokenOf(otherPhone))).toBeNull();
-    expect(await seenByHook(userId)).toBeNull(); // the app's data stays for now
+    expect(await seenByHook(userId)).toBeNull(); // the app's data stays
+    // Nothing purges it on its own.
+    await purgeDeletedAccounts(env, { ...options, onDeleteAccount: hookToTable }, Date.now() + 3650 * DAY);
+    expect(await deletedAt(userId)).toBeTruthy();
   });
 
-  it("restores the account when they sign back in within the grace period", async () => {
+  it("makes the account active again when they sign back in", async () => {
     const real = await signUp("mae@example.com");
     const userId = real.body.user.id;
     await deleteAccount(tokenOf(real));
@@ -202,13 +203,13 @@ describe("deleting an account", () => {
     expect(await whoami(tokenOf(back))).toMatchObject({ userId });
   });
 
-  it("purges accounts past the grace period, the app's part first", async () => {
+  it("with deleteAfterDays, purges accounts deleted longer ago, the app's part first", async () => {
     const old = await signUp("old@example.com");
     const recent = await signUp("recent@example.com");
     await deleteAccount(tokenOf(old));
     await deleteAccount(tokenOf(recent));
 
-    const result = await purgeDeletedAccounts(env, { ...options, onDeleteAccount: hookToTable }, Date.now() + 31 * DAY - 1000 * 60);
+    const result = await purgeDeletedAccounts(env, { ...options, deleteAfterDays: 30, onDeleteAccount: hookToTable }, Date.now() + 31 * DAY - 1000 * 60);
     expect(result.failed).toBe(0);
     expect(await rowCount(old.body.user.id)).toBe(0);
     expect(await rowCount(recent.body.user.id)).toBe(0);
@@ -217,7 +218,7 @@ describe("deleting an account", () => {
     // Not yet due: kept.
     const fresh = await signUp("fresh@example.com");
     await deleteAccount(tokenOf(fresh));
-    await purgeDeletedAccounts(env, { ...options, onDeleteAccount: hookToTable });
+    await purgeDeletedAccounts(env, { ...options, deleteAfterDays: 30, onDeleteAccount: hookToTable });
     expect(await deletedAt(fresh.body.user.id)).toBeTruthy();
 
     // Once purged, the email is free again.
@@ -236,19 +237,19 @@ describe("deleting an account", () => {
   it("keeps an account whose purge fails in the app's part, for the next run", async () => {
     const res = await signUp("keep-me@example.com");
     await deleteAccount(tokenOf(res));
-    const result = await purgeDeletedAccounts(env, { ...options, onDeleteAccount: hookToTable }, Date.now() + 40 * DAY);
+    const result = await purgeDeletedAccounts(env, { ...options, deleteAfterDays: 30, onDeleteAccount: hookToTable }, Date.now() + 40 * DAY);
     expect(result.failed).toBeGreaterThanOrEqual(1);
     expect(await deletedAt(res.body.user.id)).toBeTruthy();
   });
 
-  it("deletes an anonymous user at once, since they could never sign back in", async () => {
+  it("treats an anonymous user the same way", async () => {
     const res = await (await registeredDevice()).signIn();
     const userId = res.body.user.id;
     const out = await deleteAccount(tokenOf(res));
     expect(out.status).toBe(200);
-    expect(out.body.restorableUntil).toBeNull();
-    expect(await rowCount(userId)).toBe(0);
-    expect(await seenByHook(userId)).toEqual({ email: expect.any(String), anonymous: 1 });
+    expect(await whoami(tokenOf(res))).toBeNull();
+    expect(await deletedAt(userId)).toBeTruthy();
+    expect(await seenByHook(userId)).toBeNull();
   });
 
   it("keeps the user when an immediate delete fails in the app's part, so the phone can try again", async () => {
