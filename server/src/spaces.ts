@@ -142,6 +142,27 @@ export async function changes(env: SpacesEnv, spaceId: string, deviceId: string,
   return space ? space.changes(deviceId, since, limit) : notFound;
 }
 
+/** Leaves every space the member is in, for @flare/auth's onDeleteAccount.
+ *  Their phone names go with them; a space nobody is left in is erased now
+ *  (its documents, files and invite code), and one shared with others
+ *  carries on without them. */
+export async function leaveAllSpaces(env: SpacesEnv, memberId: string) {
+  const { results } = await env.DB.prepare("SELECT space_id FROM space_members WHERE member_id = ?")
+    .bind(memberId)
+    .all<{ space_id: string }>();
+  const left: string[] = [];
+  for (const { space_id: spaceId } of results) {
+    const space = spaceStub(env, spaceId);
+    const result = space ? await space.leave(memberId, { forget: true }) : notFound;
+    logSpace("space_leave_all", memberId, spaceId, result);
+    if (result.ok) left.push(spaceId);
+    // Already gone or not a member: either way, not theirs any more.
+    else if (result.error !== "NOT_FOUND" && result.error !== "NOT_MEMBER") throw new Error(`leave ${spaceId}: ${result.error}`);
+    await removeMember(env, memberId, spaceId);
+  }
+  return { left };
+}
+
 /** Moves every space `from` is in over to `to`: call it from @flare/auth's
  *  onLinkAccount (an anonymous user signed in to a real account). */
 export async function relinkMember(env: SpacesEnv, from: string, to: string) {

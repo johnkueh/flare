@@ -58,6 +58,9 @@ export type FlarePush<F extends NotificationsFile> = ReturnType<typeof flarePush
 /** Moves a member's devices to another member id, as when an anonymous
  *  user signs in to an account (call it next to relinkMember). */
 export declare function relinkPushMember(env: Pick<PushEnv, "DB">, from: string, to: string): Promise<void>;
+/** Forgets every device a member registered, for @flare/auth's
+ *  onDeleteAccount (call it next to leaveAllSpaces). */
+export declare function forgetPushMember(env: Pick<PushEnv, "DB">, memberId: string): Promise<void>;
 type Device = {
     platform: PushPlatform;
     token: string;
