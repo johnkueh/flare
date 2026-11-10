@@ -101,7 +101,8 @@ function readFlags(args) {
 }
 
 function wrangler(args, where) {
-  const flags = where === "local" ? ["--local"] : ["--remote"];
+  // `wrangler flagship` talks to the real app by default and has no --remote.
+  const flags = where === "local" ? ["--local"] : [];
   try {
     const out = execFileSync("npx", ["--yes", "wrangler", "flagship", "flags", ...args, ...flags, "--json"], {
       encoding: "utf8",
